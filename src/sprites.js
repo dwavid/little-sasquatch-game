@@ -168,12 +168,8 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
     P.px(S(10.4 + fx), S(15 + hy), '#fff'); P.px(S(15.6 + fx), S(15 + hy), '#fff');
   } else {
     const my = Math.round(S(14.2 + hy)), u = Math.max(1, Math.round(k));
-    P.rect(S(9 + fx), my, S(9) + u, u, INK);
-    for (const tx of [9, 15]) {
-      const x0 = Math.round(S(tx + fx));
-      P.rect(x0, my, 3 * u, 4 * u, INK);
-      P.rect(x0 + u, my + u, u, 2 * u, '#ffffff');
-    }
+    P.rect(S(9.5 + fx), my, S(8) + u, u, INK);                 // thin mouth line
+    for (const tx of [9.5, 16]) P.rect(Math.round(S(tx + fx)), my + u, u, 2 * u, '#ffffff');   // two small tusks, no outline
   }
   // accessories
   if (who === 'mom') {
@@ -618,7 +614,7 @@ function buildSprites() {
   SPR.log = {}; for (const w of [64, 80]) SPR.log[w] = logSprite(w);
   SPR.ledge = {}; for (const w of [96]) SPR.ledge[w] = ledgeSprite(w);
   SPR.sticks = [stickSprite(r), stickSprite(r), stickSprite(r)];
-  SPR.rock = boulder(38, 16, 3);
+  SPR.rock = boulder(38, 18, 3);
   SPR.rocks = [boulder(18, 10, 9), boulder(26, 13, 21), boulder(12, 7, 4)];
   SPR.crate = crate(32, 18);
   SPR.cave = makeCave();

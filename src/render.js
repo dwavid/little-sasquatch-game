@@ -217,7 +217,7 @@ function drawTerrain(g, cam) {
     g.fillStyle = '#1f5f2c'; g.fillRect(x0, top + 6, x1 - x0, 1);
     for (let x = Math.ceil(x0 / 5) * 5; x < x1; x += 5) { if ((x * 7) % 3 === 0) g.fillRect(x, top + 7, 1, 2); }
     for (let x = Math.ceil(x0 / 7) * 7; x < x1; x += 7) { g.fillStyle = '#6fd066'; g.fillRect(x, top - 1, 1, 1); if (x % 3 === 0) g.fillRect(x + 2, top - 1, 1, 1); }
-    if (kind === 'boulder') { g.drawImage(SPR.rock, s[0], y - 2); continue; }
+    if (kind === 'boulder') { g.drawImage(SPR.rock, s[0], y); continue; }
     if (kind === 'crate') { g.drawImage(SPR.crate, s[0], y); continue; }
     // darker cliff faces where the neighbour is lower
     const L = L1.ground[i - 1], R = L1.ground[i + 1];
@@ -242,7 +242,6 @@ function drawScenery(g, cam, t, state) {
   for (const f of BG.decor.flowers) if (vis(f.x, 10)) blit(g, SPR.flowers[f.i], f.x, groundAt(f.x) + 3);
   for (const x of L1.puddles) if (vis(x)) blit(g, SPR.puddle, x, groundAt(x) + 3);
   for (const x of L1.sticks) if (vis(x)) blit(g, SPR.sticks[(x / 7 | 0) % 3], x, groundAt(x) + 2);
-  for (const x of L1.rocks) if (vis(x)) blit(g, SPR.rocks[(x / 13 | 0) % 3], x, groundAt(x) + 3);
   for (const tn of L1.tents) if (vis(tn.x)) blit(g, SPR.tents[tn.c], tn.x, L1.baseY + 1);
   for (const x of L1.tables) if (vis(x)) blit(g, SPR.table, x, L1.baseY + 1);
   if (vis(L1.rv.x + 46, 120)) g.drawImage(SPR.rv, L1.rv.x, L1.baseY - SPR.rv.height + 3);
