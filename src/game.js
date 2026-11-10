@@ -249,7 +249,7 @@ Scenes.intro = {
   update(dt) {
     const prev = this.t; this.t += dt;
     if (pressed('confirm') && this.t > 0.6) { go('play'); return; }
-    if (this.t > INTRO.END) { go('play'); return; }
+    if (this.t > INTRO.END) { setScene('play', { fromIntro: true }); return; }
     for (const f of INTRO.flashes) if (prev < f && this.t >= f) { Snd.thunder(); }
     if (prev < 7.6 && this.t >= 7.6) Snd.music('none');
     if (prev < 15 && this.t >= 15) Snd.music('sad');
@@ -284,7 +284,7 @@ Scenes.intro = {
       // dad, mom, little walking together
       const dadX = lx + 118, momX = lx + 58;
       fam(SPR.dad[wf(0)][2], dadX); fam(SPR.mom[wf(2)][2], momX);
-      fam(SPR.sasq[wf(1)][2], lx);
+      fam(SPR.sasq[wf(1)][2], lx + 7);
     } else {
       const dt2 = t - 12.4, spd = 95;
       const a = clamp(1 - (dt2 - 0.3) / 1.4, 0, 1);
@@ -295,15 +295,15 @@ Scenes.intro = {
       }
       let pose = 'hurt', look = 1;
       if (t > 15) { pose = 'idle'; look = (((t - 15) / 1.1) | 0) % 2 ? 0 : -1; if (t > 17.6) look = 1; if (t > 16 && t < 16.2) pose = 'blink'; }
-      fam(SPR.sasq[pose][look + 1], lx);
+      fam(SPR.sasq[pose][look + 1], lx + 7);
       if (t > 13.9 && t < 16) { /* hidden by rain & flash */ }
     }
     // speech after the storm
     if (t > 17.4 && t < 20.2) {
       const full = 'MOM? DAD?';
-      drawBubble(g, full, lx - cam, groundAt(lx) - 34, { typed: Math.floor((t - 17.4) * 12), maxChars: 12 });
+      drawBubble(g, full, lx + 7 - cam, groundAt(lx) - 34, { typed: Math.floor((t - 17.4) * 12), maxChars: 12 });
     } else if (t >= 20.2 && t < 22.6) {
-      drawBubble(g, '...?', lx - cam, groundAt(lx) - 34, { maxChars: 12 });
+      drawBubble(g, '...?', lx + 7 - cam, groundAt(lx) - 34, { maxChars: 12 });
     }
     // rain + tint
     drawRain(g, this.rainNow(), 1 / 60, -36);
@@ -322,7 +322,8 @@ Scenes.intro = {
       g.globalAlpha = 1;
     }
     // letterbox + level card
-    g.fillStyle = '#000'; g.fillRect(0, 0, VW, 14); g.fillRect(0, VH - 14 + 0, VW, 14);
+    const bar = Math.round(14 * (1 - smooth((t - (INTRO.END - 0.9)) / 0.8)));
+    g.fillStyle = '#000'; g.fillRect(0, 0, VW, bar); g.fillRect(0, VH - bar, VW, bar);
     if (t > 20.4) {
       const a = smooth((t - 20.4) / 0.8) * (1 - smooth((t - (INTRO.END - 0.9)) / 0.8));
       g.fillStyle = '#000'; g.globalAlpha = a * 0.55; g.fillRect(0, 0, VW, VH); g.globalAlpha = a;
@@ -346,7 +347,7 @@ Scenes.play = {
     this.coolers = L1.coolers.map(c => ({ x: c.x, y: c.y !== undefined ? c.y : groundAt(c.x), food: c.food, empty: false, glow: Math.random() * 6 }));
     this.state = { fireLit: false, cpActive: L1.checkpoints.map(() => false), berries: L1.berries.map(b => ({ x: b.x, has: true, t: 0 })) };
     this.cp = { x: L1.startX };
-    this.progress = 0; this.cam = 0; this.t = 0; this.shake = 0; this.toasts = []; this.timers = [];
+    this.progress = 0; this.cam = 0; this.t0 = opts.fromIntro ? INTRO.END : 0; this.t = this.t0; this.shake = 0; this.toasts = []; this.timers = [];
     this.mode = 'play'; this.fadeOut = 0; this.hungryBubble = 0; this.hungryCool = 0; this.paused = false; this.eaten = 0; this.fullShown = false;
     this.night = 0; this.endT = 0; this.endStage = 0; this.stageT = 0; this.sit = false; this.dialogIdx = 0; this.dialogT = 0; this.doneT = 0; this.flash = 0;
     this.DIALOG.forEach(d => { d.played = false; });
@@ -567,7 +568,7 @@ Scenes.play = {
     const pr = this.progress;
     env.rainbow = smooth(pr / 0.1) * (1 - smooth((pr - 0.2) / 0.14)) * 0.9;
     // rain only while the camera is near the start
-    env.rain = clamp(1 - this.cam / 700, 0, 1) * 0.5;
+    env.rain = clamp(1 - this.cam / 700, 0, 1) * 0.5 * smooth((this.t - this.t0) / 2.5);
     if (this.mode === 'ending') {
       env = lerpEnv(env, ENV_NIGHT, this.night);
       env.rain = 0;
