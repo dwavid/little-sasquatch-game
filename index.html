@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Little Sasquatch: Find Your Family</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0914; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; background: #000; box-shadow: 0 0 40px rgba(0,0,0,.6); }
+  #touch { display: none; position: fixed; inset: 0; pointer-events: none; }
+  #touch .btn { position: absolute; bottom: 18px; width: 64px; height: 64px; border-radius: 50%; pointer-events: auto;
+    background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45); color: #fff; font: bold 22px monospace;
+    display: flex; align-items: center; justify-content: center; }
+  #touch .btn:active { background: rgba(255,255,255,.4); }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="480" height="270"></canvas></div>
+<div id="touch">
+  <div class="btn" data-a="left"  style="left:14px">&#9664;</div>
+  <div class="btn" data-a="right" style="left:92px">&#9654;</div>
+  <div class="btn" data-a="down"  style="left:53px;bottom:88px;width:52px;height:52px">&#9660;</div>
+  <div class="btn" data-a="act"   style="right:92px">E</div>
+  <div class="btn" data-a="jump"  style="right:14px">&#9650;</div>
+</div>
+<script src="src/sprites.js"></script>
+<script src="src/font.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/level1.js"></script>
+<script src="src/render.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>
