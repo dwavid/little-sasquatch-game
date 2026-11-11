@@ -238,11 +238,12 @@ const INTRO = {
   T1: { x: 150, len: 100, strike: 12.0, fall: 12.3, land: 13.1 },     // big tree: falls between him and his family
   T2: { x: 0, len: 66, strike: 13.8, fall: 14.05, land: 14.65 },      // small tree: crashes down right behind him
   ZAP: 14.9,
+  PORTAL: { mom: 11.85, dad: 12.1, close: 13.5, run: 13.2 },   // portals open, parents are hypnotised, then run away
   captions: [
     [0.8, 'HIGH IN A QUIET VALLEY, A SASQUATCH FAMILY WENT OUT FOR A HIKE.', 6.6],
     [7.2, 'BUT MOUNTAIN WEATHER CAN CHANGE IN A HURRY...', 11.0],
-    [11.4, 'THEN A HUGE STORM HIT! TREES CRASHED DOWN BETWEEN THE FAMILY!', 14.5],
-    [14.6, 'AND A BOLT OF LIGHTNING STRUCK LITTLE SASQUATCH ON THE HEAD!', 16.6],
+    [11.4, 'THEN A HUGE STORM HIT! STRANGE LIGHTNING PORTALS OPENED AND HYPNOTIZED HIS PARENTS!', 13.9],
+    [14.0, 'THEY RAN OFF... THEN LIGHTNING STRUCK LITTLE SASQUATCH!', 16.6],
     [16.9, 'WHEN THE STORM PASSED, LITTLE SASQUATCH WAS ALL ALONE.', 20.6],
     [20.9, "THE LIGHTNING HAD ZAPPED HIS MEMORY. HE COULDN'T REMEMBER HIS FAMILY AT ALL.", 25.4],
   ],
@@ -255,15 +256,57 @@ function boltLine(g, ax, ay, bx, by, w) {
   const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) | 0;
   for (let i = 0; i <= n; i++) g.fillRect(Math.round(lerp(ax, bx, i / n) - w / 2), Math.round(lerp(ay, by, i / n)), w, 2);
 }
-function drawBolt(g, x, ty, seed, cam) {
+function drawBolt(g, x, ty, seed, cam, pal) {
   const r = rng(seed), pts = [[x - cam + 30 * (r() - .5) + 40, 0]];
   for (let i = 1; i < 7; i++) pts.push([lerp(pts[0][0], x - cam, i / 7) + (r() - .5) * 34, ty * i / 7]);
   pts.push([x - cam, ty]);
-  for (const [w, col, al] of [[9, '#fff3a0', 0.35], [5, '#fff8c8', 0.7], [2, '#ffffff', 1]]) {
+  for (const [w, col, al] of [[9, pal ? pal[0] : '#fff3a0', 0.35], [5, pal ? pal[1] : '#fff8c8', 0.7], [2, '#ffffff', 1]]) {
     g.fillStyle = col; g.globalAlpha = al;
     for (let i = 0; i < pts.length - 1; i++) boltLine(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w);
   }
   g.globalAlpha = 1;
+}
+/* A swirling orange-and-purple lightning portal (chunky 2px pixels). amt: 0 closed .. 1 fully open */
+function drawPortal(g, cx, cy, rx, ry, t, amt, dir) {
+  if (amt <= 0.03) return;
+  rx *= amt; ry *= amt;
+  g.save(); g.beginPath(); g.rect(0, 0, VW, 236); g.clip();
+  g.globalCompositeOperation = 'lighter';                                // soft glow behind it
+  for (const [k, c, a] of [[1.7, '#8a3dd9', 0.1], [1.4, '#ff7a1a', 0.12], [1.15, '#ffb060', 0.14]]) { g.fillStyle = c; g.globalAlpha = a * amt; g.beginPath(); g.ellipse(cx, cy, rx * k, ry * k, 0, 0, 6.2832); g.fill(); }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  for (let y = -Math.ceil(ry); y < ry; y += 2) for (let x = -Math.ceil(rx); x < rx; x += 2) {
+    const u = (x + 1) / rx, v = (y + 1) / ry, d = Math.sqrt(u * u + v * v);
+    if (d > 1) continue;
+    const s = Math.sin((Math.atan2(v, u) + (1 - d) * 7 * dir + t * 3.4 * dir) * 3 + d * 9 - t * 6);
+    let col;
+    if (d > 0.88) col = ((t * 12 | 0) + (x >> 1)) % 2 ? '#fff0b8' : (dir > 0 ? '#ff9a2e' : '#c48cff');
+    else if (d < 0.13) col = '#ffffff';
+    else if (s > 0.35) col = '#ff8a1f';
+    else if (s < -0.35) col = '#8a3dd9';
+    else col = s > 0 ? '#c4461a' : '#3a1670';
+    g.fillStyle = col; g.fillRect(Math.round(cx + x), Math.round(cy + y), 2, 2);
+  }
+  // crackling arcs of orange / purple lightning
+  const r = rng((t * 14 | 0) * 31 + (dir > 0 ? 1 : 2));
+  for (let i = 0; i < 6; i++) {
+    const a0 = i / 6 * 6.2832 + r() * 0.8, len = (1.25 + r() * 0.8);
+    let px = cx + Math.cos(a0) * rx * 0.9, py = cy + Math.sin(a0) * ry * 0.9;
+    g.fillStyle = i % 2 ? '#c48cff' : '#ffb060';
+    for (let k = 1; k <= 4; k++) {
+      const nx = cx + Math.cos(a0) * rx * (0.9 + (len - 0.9) * k / 4) + (r() - .5) * 9, ny = cy + Math.sin(a0) * ry * (0.9 + (len - 0.9) * k / 4) + (r() - .5) * 9;
+      boltLine(g, px, py, nx, ny, 2); px = nx; py = ny;
+    }
+  }
+  g.restore();
+}
+/* A hypnotised, spiralling eye */
+function drawSwirlEye(g, cx, cy, rad, t) {
+  g.fillStyle = '#f6edd3'; fillCircle(g, cx, cy, Math.round(rad));
+  for (let rr = 0.4; rr <= rad; rr += 0.3) for (let arm = 0; arm < 2; arm++) {
+    const a = rr * 2.2 + t * 7 + arm * Math.PI;
+    g.fillStyle = arm ? '#8a3dd9' : '#ff7a1a';
+    g.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr), 1, 1);
+  }
 }
 Scenes.intro = {
   t: 0, state: { fireLit: false, cpActive: [], berries: [], hideSigns: true },
@@ -280,6 +323,12 @@ Scenes.intro = {
     if (t > I.END) { setScene('play', { fromIntro: true }); return; }
     const cross = x => prev < x && t >= x;
     if (cross(11.4)) Snd.thunder();
+    if (cross(I.PORTAL.mom)) { Snd.portal(); this.shake = 0.3; }
+    if (cross(I.PORTAL.dad)) { Snd.portal(); this.shake = 0.3; }
+    if (t > I.PORTAL.mom + 0.4 && t < I.PORTAL.close && Math.random() < dt * 22) {   // swirling sparkles drawn toward the parents' heads
+      const base = (Math.random() < 0.5 ? 215 : 260) + 80, col = Math.random() < .5 ? '#ff9a2e' : '#b46cff';
+      spawn({ type: 'glow', x: base + (Math.random() - .5) * 60, y: 232 - 70 + (Math.random() - .5) * 60, vx: (Math.random() - .5) * 20, vy: -10 - Math.random() * 20, life: 0.7, col });
+    }
     for (const T of [I.T1, I.T2]) {
       if (cross(T.strike)) { Snd.zap(); Snd.thunder(); this.shake = 0.4; }
       if (cross(T.land)) { Snd.crash(); this.shake = 0.7; this.dustLanding(T); }
@@ -322,7 +371,7 @@ Scenes.intro = {
   flashNow() {
     const t = this.t; let f = 0;
     const hit = (t0, pk, dur) => { if (t >= t0 && t < t0 + dur) f = Math.max(f, pk * (1 - (t - t0) / dur) * (((t - t0) * 30 | 0) % 5 === 3 ? 0.5 : 1)); };
-    hit(11.4, 0.4, 0.5); hit(INTRO.T1.strike, 0.8, 0.5); hit(INTRO.T2.strike, 0.8, 0.5);
+    hit(11.4, 0.4, 0.5); hit(INTRO.PORTAL.mom, 0.55, 0.35); hit(INTRO.PORTAL.dad, 0.55, 0.35); hit(INTRO.T1.strike, 0.8, 0.5); hit(INTRO.T2.strike, 0.8, 0.5);
     if (t >= INTRO.ZAP && t < 16.6) f = Math.max(f, t < INTRO.ZAP + 0.22 ? 0.3 : t < 15.6 ? 1 : 1 - smooth((t - 15.6) / 1.0));
     return f;
   },
@@ -344,13 +393,22 @@ Scenes.intro = {
     // family
     const fam = (img, x) => blit(g, img, x - cam, 233);
     const run = t > 11 ? 14 : 8, wf = off => ['w0', 'w1', 'w2', 'w3'][((t * run + off) | 0) % 4];
-    const rd = clamp(t - I.STOP, 0, 1.5) * 60;
+    const P = I.PORTAL, momBase = lx + 215, dadBase = lx + 260;
+    const portalAmt = t0 => t < t0 ? 0 : Math.min(smooth((t - t0) / 0.5), 1 - smooth((t - P.close) / 0.6));
+    drawPortal(g, momBase - cam, 232 - 40, 26, 44, t, portalAmt(P.mom), 1);
+    drawPortal(g, dadBase - cam, 232 - 40, 26, 44, t, portalAmt(P.dad), -1);
     if (t < I.ZAP + 0.1) {
-      const momX = lx + 215 + rd, dadX = lx + 260 + rd * 1.2, called = t >= 13.3, panic = ((t * 4) | 0) % 2 ? 'jump' : 'idle';
-      const pose = off => !called ? wf(off) : panic;
-      fam(SPR.mom[pose(2)][called ? 0 : 2], momX); fam(SPR.dad[pose(0)][called ? 0 : 2], dadX);
-      if (t > 13.4 && t < 14.8) drawBubble(g, 'LITTLE ONE!', momX - cam, 233 - 56, { maxChars: 12 });
-      if (t > 13.9 && t < 14.8) drawBubble(g, 'HOLD ON!', dadX - cam, 233 - 62, { maxChars: 12 });
+      const ran = Math.max(0, t - P.run), momX = momBase + ran * 150, dadX = dadBase + ran * 165;
+      const frame = (off, bob) => t < I.STOP ? wf(off) : t < P.run ? 'idle' : wf(off);
+      const sway = t >= P.mom + 0.3 && t < P.run ? Math.round(Math.sin(t * 5)) : 0;
+      for (const [img, x, hyp, off] of [[SPR.mom, momX, P.mom + 0.35, 2], [SPR.dad, dadX, P.dad + 0.35, 0]]) {
+        const key = frame(off), sp = img[key][2];
+        blit(g, sp, x - cam, 233 + sway);
+        if (t >= hyp) {   // hypnotised: spiral eyes
+          const left = Math.round(x - cam - sp.width / 2), top = Math.round(233 + sway - sp.height), bob = (key === 'w1' || key === 'w3') ? -1.6 : 0;
+          drawSwirlEye(g, left + 19.5, top + 19 + bob, 4.3, t); drawSwirlEye(g, left + 30, top + 19 + bob, 4.3, t);
+        }
+      }
     }
     // Little Sasquatch
     let pose = 'idle', look = 1;
@@ -370,13 +428,16 @@ Scenes.intro = {
     }
     drawParts(g, cam);
     // bubbles after the storm
+    if (t > 13.5 && t < 14.8) drawBubble(g, 'MOM! DAD!', lx + 7 - cam, 233 - 36, { typed: Math.floor((t - 13.5) * 20), maxChars: 12 });
     if (t > 19.8 && t < 22.4) drawBubble(g, 'WHERE AM I...?', lx + 7 - cam, 233 - 36, { typed: Math.floor((t - 19.8) * 14), maxChars: 14 });
     else if (t > 23.4 && t < 26) drawBubble(g, 'SO HUNGRY...', lx + 7 - cam, 233 - 36, { maxChars: 14 });
     // rain + tint
     drawRain(g, this.rainNow(), 1 / 60, -36);
     applyTint(g, env);
     // lightning
+    const P2 = I.PORTAL;
     for (const [T, tx, ty, sd] of [[I.T1, I.T1.x, 232 - I.T1.len + 4, 3], [I.T2, I.T2.x, 232 - I.T2.len + 4, 9]]) if (t >= T.strike && t < T.strike + 0.3 && ((t * 40) | 0) % 4 !== 3) drawBolt(g, tx, ty, sd, cam);
+    for (const [t0, bx, pal] of [[P2.mom, lx + 215, ['#ff9a2e', '#ffd9a0']], [P2.dad, lx + 260, ['#9b4dff', '#e0c4ff']]]) if (t >= t0 - 0.2 && t < t0 + 0.2 && ((t * 40) | 0) % 4 !== 3) drawBolt(g, bx, 232 - 78, (t0 * 7) | 0, cam, pal);
     if (t >= I.ZAP && t < I.ZAP + 0.3) drawBolt(g, lx + 7, 233 - 32, 5, cam);
     const fl = this.flashNow();
     if (fl > 0) { g.fillStyle = '#fff'; g.globalAlpha = clamp(fl, 0, 1); g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
