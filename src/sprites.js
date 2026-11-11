@@ -180,12 +180,13 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
   // mouth + little tusks
   if (p.mouth) {
     P.ell(S(13 + fx), S(14.6 + hy), S(2.6), S(1.7), INK);
-    P.px(S(10.4 + fx), S(15 + hy), '#fff'); P.px(S(15.6 + fx), S(15 + hy), '#fff');
+    const ou = Math.max(1, Math.round(k));   // teeth sit on the top edge of the open mouth, pointing up, nothing below
+    for (const tx of [10, 15]) P.rect(Math.round(S(tx + fx)), Math.round(S(13.2 + hy)) - ou, ou, 2 * ou, '#ffffff');
   } else {
     const my = Math.round(S(14.2 + hy)), u = Math.max(1, Math.round(k));
     P.rect(S(8 + fx), my, S(10), u, INK);                       // mouth line: sticks out past the teeth on both sides
     for (const tx of [10, 15]) {                                // two thin one-pixel teeth, tucked inside the line
-      P.rect(Math.round(S(tx + fx)), my - u, u, 3 * u, '#ffffff');   // from just above the line to just below it
+      P.rect(Math.round(S(tx + fx)), my - u, u, 2 * u, '#ffffff');   // on the mouth line, one pixel tall above it, nothing below
     }
   }
   // accessories
