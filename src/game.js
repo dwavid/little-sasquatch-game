@@ -234,20 +234,41 @@ Scenes.title = {
    Little Sasquatch and his parents), then a bolt hits Little Sasquatch on the head. */
 const INTRO = {
   sunny: null, storm: null, clear: null,
-  STOP: 11.8, END: 29.4,
-  T1: { x: 150, len: 100, strike: 12.0, fall: 12.3, land: 13.1 },     // big tree: falls between him and his family
-  T2: { x: 0, len: 66, strike: 13.8, fall: 14.05, land: 14.65 },      // small tree: crashes down right behind him
-  ZAP: 14.9,
-  PORTAL: { mom: 11.85, dad: 12.1, close: 13.5, run: 13.2 },   // portals open, parents are hypnotised, then run away
+  END: 51.4,                                     // real seconds
+  // ---- ACTION times, on the "story clock" (it runs in slow motion while narration is on screen) ----
+  STOP: 11.8,
+  T1: { x: 150, len: 100, strike: 12.0, fall: 12.4, land: 12.8 },     // big tree: falls between him and his family
+  T2: { x: 0, len: 66, strike: 14.4, fall: 14.55, land: 15.0 },       // small tree: crashes down right behind him
+  ZAP: 15.6,
+  PORTAL: { mom: 11.85, dad: 12.1, close: 13.5, run: 13.2 },          // portals open, parents are hypnotised, then run away
+  // story clock vs real clock: [real seconds, story seconds]; after the last point they run 1:1
+  WARP: [[0, 0], [7.2, 6.4], [12.6, 11.0], [13.2, 11.8], [13.3, 11.85], [19.4, 13.2], [22.4, 14.4], [27.6, 15.6]],
+  // ---- TEXT times, in real seconds. Captions and Little Sasquatch's speech bubbles never overlap. ----
   captions: [
-    [0.8, 'HIGH IN A QUIET VALLEY, A SASQUATCH FAMILY WENT OUT FOR A HIKE.', 6.6],
-    [7.2, 'BUT MOUNTAIN WEATHER CAN CHANGE IN A HURRY...', 11.0],
-    [11.4, 'THEN A HUGE STORM HIT! STRANGE LIGHTNING PORTALS OPENED AND HYPNOTIZED HIS PARENTS!', 13.9],
-    [14.0, 'THEY RAN OFF... THEN LIGHTNING STRUCK LITTLE SASQUATCH!', 16.6],
-    [16.9, 'WHEN THE STORM PASSED, LITTLE SASQUATCH WAS ALL ALONE.', 20.6],
-    [20.9, "THE LIGHTNING HAD ZAPPED HIS MEMORY. HE COULDN'T REMEMBER HIS FAMILY AT ALL.", 25.4],
+    [0.8, 'HIGH IN A QUIET VALLEY, A SASQUATCH FAMILY WENT OUT FOR A HIKE.', 7.2],
+    [7.8, 'BUT MOUNTAIN WEATHER CAN CHANGE IN A HURRY...', 12.6],
+    [13.2, 'THEN A HUGE STORM HIT! STRANGE LIGHTNING PORTALS OPENED AND HYPNOTIZED HIS PARENTS!', 19.4],
+    [22.6, 'THEY RAN OFF... THEN LIGHTNING STRUCK LITTLE SASQUATCH!', 27.6],
+    [30.3, 'WHEN THE STORM PASSED, LITTLE SASQUATCH WAS ALL ALONE.', 35.3],
+    [38.5, "THE LIGHTNING HAD ZAPPED HIS MEMORY. HE COULDN'T REMEMBER HIS FAMILY AT ALL.", 44.6],
   ],
+  bubbles: [
+    [19.8, 22.2, 'MOM! DAD!', 12], [35.7, 38.1, 'WHERE AM I...?', 12], [45.0, 47.4, 'SO HUNGRY...', 0],
+  ],
+  CPS: 26,                                       // caption typing speed (characters per second)
 };
+function introWarp(rt) {   // real time -> story time
+  const K = INTRO.WARP;
+  if (rt >= K[K.length - 1][0]) return K[K.length - 1][1] + (rt - K[K.length - 1][0]);
+  for (let i = 0; i < K.length - 1; i++) if (rt < K[i + 1][0]) return lerp(K[i][1], K[i + 1][1], (rt - K[i][0]) / (K[i + 1][0] - K[i][0]));
+  return 0;
+}
+function introWarpInv(s) { // story time -> real time
+  const K = INTRO.WARP;
+  if (s >= K[K.length - 1][1]) return K[K.length - 1][0] + (s - K[K.length - 1][1]);
+  for (let i = 0; i < K.length - 1; i++) if (s < K[i + 1][1]) return lerp(K[i][0], K[i + 1][0], (s - K[i][1]) / (K[i + 1][1] - K[i][1]));
+  return 0;
+}
 function introS(t) { // distance the family has walked by time t
   const a = Math.min(t, 7) * 36, b = clamp(t - 7, 0, 4) * 46, c = Math.max(0, t - 11) * 74;
   return a + b + c;
@@ -309,40 +330,47 @@ function drawSwirlEye(g, cx, cy, rad, t) {
   }
 }
 Scenes.intro = {
-  t: 0, state: { fireLit: false, cpActive: [], berries: [], hideSigns: true },
+  t: 0, rt: 0, ev: {}, state: { fireLit: false, cpActive: [], berries: [], hideSigns: true },
   enter() {
-    this.t = 0; this.shake = 0; Parts.length = 0;
+    this.t = 0; this.rt = 0; this.ev = {}; this.shake = 0; Parts.length = 0;
     INTRO.sunny = envAt(0.35); INTRO.sunny.rain = 0; INTRO.sunny.over = 0.04; INTRO.sunny.rainbow = 0; INTRO.sunny.sun = 0.8;
     INTRO.storm = envNum({ top: '#2a303e', bot: '#505b6a', tint: '#737e8d', over: 1, sun: 0, rain: 1 });
     INTRO.clear = envAt(0); INTRO.clear.rainbow = 0;
     Snd.music('play');
   },
+  seek(rt) {   // jump to a real time (used for testing)
+    this.rt = rt; this.t = introWarp(rt); this.ev = {};
+    const I = INTRO, E = { storm1: 11.4, pm: I.PORTAL.mom, pd: I.PORTAL.dad, t1: I.T1.strike, t2: I.T2.strike, zap: I.ZAP };
+    for (const k in E) if (this.t >= E[k]) this.ev[k] = introWarpInv(E[k]);
+  },
   update(dt) {
-    const prev = this.t, I = INTRO; this.t += dt; const t = this.t;
-    if (pressed('confirm') && t > 0.6) { go('play'); return; }
-    if (t > I.END) { setScene('play', { fromIntro: true }); return; }
+    const I = INTRO, prev = this.t; this.rt += dt; this.t = introWarp(this.rt); const t = this.t, rt = this.rt, Z = I.ZAP;
+    if (pressed('confirm') && rt > 0.6) { go('play'); return; }
+    if (rt > I.END) { setScene('play', { fromIntro: true }); return; }
     const cross = x => prev < x && t >= x;
-    if (cross(11.4)) Snd.thunder();
-    if (cross(I.PORTAL.mom)) { Snd.portal(); this.shake = 0.3; }
-    if (cross(I.PORTAL.dad)) { Snd.portal(); this.shake = 0.3; }
-    if (t > I.PORTAL.mom + 0.4 && t < I.PORTAL.close && Math.random() < dt * 22) {   // swirling sparkles drawn toward the parents' heads
+    const mark = (name, x) => { if (cross(x)) { this.ev[name] = rt; return true; } return false; };
+    if (mark('storm1', 11.4)) Snd.thunder();
+    if (mark('pm', I.PORTAL.mom)) { Snd.portal(); this.shake = 0.3; }
+    if (mark('pd', I.PORTAL.dad)) { Snd.portal(); this.shake = 0.3; }
+    if (t > I.PORTAL.mom + 0.1 && t < I.PORTAL.close && Math.random() < dt * 22) {   // swirling sparkles drawn toward the parents' heads
       const base = (Math.random() < 0.5 ? 215 : 260) + 80, col = Math.random() < .5 ? '#ff9a2e' : '#b46cff';
       spawn({ type: 'glow', x: base + (Math.random() - .5) * 60, y: 232 - 70 + (Math.random() - .5) * 60, vx: (Math.random() - .5) * 20, vy: -10 - Math.random() * 20, life: 0.7, col });
     }
-    for (const T of [I.T1, I.T2]) {
-      if (cross(T.strike)) { Snd.zap(); Snd.thunder(); this.shake = 0.4; }
+    for (const [T, nm] of [[I.T1, 't1'], [I.T2, 't2']]) {
+      if (mark(nm, T.strike)) { Snd.zap(); Snd.thunder(); this.shake = 0.4; }
       if (cross(T.land)) { Snd.crash(); this.shake = 0.7; this.dustLanding(T); }
-      if (t > T.strike && t < T.land) this.fire(T);
+      if (t > T.strike && t < T.land && Math.random() < dt * 40) this.fire(T);
     }
-    if (cross(I.ZAP)) { Snd.zap(); Snd.thunder(); this.shake = 0.9; }
+    if (mark('zap', Z)) { Snd.zap(); Snd.thunder(); this.shake = 0.9; }
     if (cross(7.6)) Snd.music('none');
-    if (cross(16.6)) Snd.music('sad');
-    if (cross(23.4)) Snd.growl();
-    if (t > 15.5 && t < 19 && Math.random() < dt * 14) spawn({ x: 87 + (Math.random() - .5) * 8, y: 232 - 30, vx: (Math.random() - .5) * 8, vy: -16 - Math.random() * 14, life: 1.4, col: Math.random() < .5 ? '#6b6b73' : '#8a8a92', size: 2 });
-    if (cross(19.0)) for (let i = 0; i < 14; i++) spawn({ x: 87, y: 232 - 26, vx: (Math.random() - .5) * 90, vy: -Math.random() * 50, g: 40, life: 0.7, col: '#8a8a92', size: 3 });
+    if (cross(Z + 1.7)) Snd.music('sad');
+    if (prev < 1e9 && this.rt - dt < I.bubbles[2][0] && rt >= I.bubbles[2][0]) Snd.growl();
+    if (t > Z + 0.6 && t < Z + 4.1 && Math.random() < dt * 14) spawn({ x: 87 + (Math.random() - .5) * 8, y: 232 - 30, vx: (Math.random() - .5) * 8, vy: -16 - Math.random() * 14, life: 1.4, col: Math.random() < .5 ? '#6b6b73' : '#8a8a92', size: 2 });
+    if (cross(Z + 4.1)) for (let i = 0; i < 14; i++) spawn({ x: 87, y: 232 - 26, vx: (Math.random() - .5) * 90, vy: -Math.random() * 50, g: 40, life: 0.7, col: '#8a8a92', size: 3 });
     this.shake = Math.max(0, this.shake - dt * 1.6);
     updateParts(dt);
   },
+  age(name) { return this.ev[name] === undefined ? -1 : this.rt - this.ev[name]; },
   treeAngle(T, t) { // 0 = standing, PI/2 = lying to the right
     if (t < T.fall) return 0; if (t >= T.land) return Math.PI / 2;
     const k = (t - T.fall) / (T.land - T.fall); return Math.PI / 2 * k * k;
@@ -355,58 +383,58 @@ Scenes.intro = {
     for (let i = 0; i < 26; i++) spawn({ x: T.x + Math.random() * T.len, y: 230, vx: (Math.random() - .5) * 60, vy: -Math.random() * 40, g: 30, life: 0.9, col: Math.random() < .5 ? '#b9a98a' : '#d9ccb0', size: 3 });
   },
   envNow() {
-    const t = this.t;
+    const t = this.t, Z = INTRO.ZAP;
     if (t < 6.5) return INTRO.sunny;
     if (t < 11) return lerpEnv(INTRO.sunny, INTRO.storm, smooth((t - 6.5) / 3.5));
-    if (t < 16.5) return INTRO.storm;
-    return lerpEnv(INTRO.storm, INTRO.clear, smooth((t - 16.5) / 4.5));
+    if (t < Z + 1.6) return INTRO.storm;
+    return lerpEnv(INTRO.storm, INTRO.clear, smooth((t - Z - 1.6) / 4.5));
   },
   rainNow() {
-    const t = this.t;
+    const t = this.t, Z = INTRO.ZAP;
     if (t < 7.5) return 0; if (t < 9) return (t - 7.5) / 1.5 * 0.5; if (t < 11) return 0.5 + (t - 9) / 2 * 0.3;
-    if (t < 15) return Math.min(1, 0.8 + (t - 11) * .1);
-    if (t < 19) return 1 - (t - 15) / 4 * 0.6;
-    return Math.max(0, 0.4 - (t - 19) / 3 * 0.4);
+    if (t < Z) return Math.min(1, 0.8 + (t - 11) * .1);
+    if (t < Z + 4) return 1 - (t - Z) / 4 * 0.6;
+    return Math.max(0, 0.4 - (t - Z - 4) / 3 * 0.4);
   },
-  flashNow() {
-    const t = this.t; let f = 0;
-    const hit = (t0, pk, dur) => { if (t >= t0 && t < t0 + dur) f = Math.max(f, pk * (1 - (t - t0) / dur) * (((t - t0) * 30 | 0) % 5 === 3 ? 0.5 : 1)); };
-    hit(11.4, 0.4, 0.5); hit(INTRO.PORTAL.mom, 0.55, 0.35); hit(INTRO.PORTAL.dad, 0.55, 0.35); hit(INTRO.T1.strike, 0.8, 0.5); hit(INTRO.T2.strike, 0.8, 0.5);
-    if (t >= INTRO.ZAP && t < 16.6) f = Math.max(f, t < INTRO.ZAP + 0.22 ? 0.3 : t < 15.6 ? 1 : 1 - smooth((t - 15.6) / 1.0));
+  flashNow() {   // flashes are timed in real seconds from the moment each strike happens
+    let f = 0;
+    const hit = (name, pk, dur) => { const a = this.age(name); if (a >= 0 && a < dur) f = Math.max(f, pk * (1 - a / dur) * (((a * 30) | 0) % 5 === 3 ? 0.5 : 1)); };
+    hit('storm1', 0.4, 0.5); hit('pm', 0.55, 0.35); hit('pd', 0.55, 0.35); hit('t1', 0.8, 0.5); hit('t2', 0.8, 0.5);
+    const z = this.age('zap');
+    if (z >= 0 && z < 1.7) f = Math.max(f, z < 0.22 ? 0.3 : z < 0.7 ? 1 : 1 - smooth((z - 0.7) / 1.0));
     return f;
   },
   draw() {
-    const t = this.t, env = this.envNow(), I = INTRO;
+    const t = this.t, rt = this.rt, env = this.envNow(), I = INTRO, Z = I.ZAP;
     const lx = 80 + introS(Math.min(t, I.STOP)) - introS(I.STOP);     // Little Sasquatch (ends at x=80, where the level starts)
     const sh = this.shake > 0 ? Math.round((Math.random() - .5) * 8 * this.shake) : 0;
     const cam = Math.round(lx - 80) + sh;
     const hide = { [I.T1.x - 6]: t < I.T1.land, [I.T2.x - 6]: t < I.T2.land };
-    drawBackdrop(g, cam, env, t);
+    drawBackdrop(g, cam, env, rt);
     drawTrees(g, cam);
     // trees that are still standing
     for (const [T, img] of [[I.T1, SPR.treeA], [I.T2, SPR.treeB]]) if (t < T.fall) blit(g, img, T.x - cam, 232 + 4);
-    drawTerrain(g, cam, hide); drawScenery(g, cam, t, this.state);
+    drawTerrain(g, cam, hide); drawScenery(g, cam, rt, this.state);
     // falling trees
     for (const [T, img] of [[I.T1, SPR.treeA], [I.T2, SPR.treeB]]) if (t >= T.fall && t < T.land) {
       g.save(); g.translate(Math.round(T.x - cam), 232 - 2); g.rotate(this.treeAngle(T, t)); g.drawImage(img, -img.width / 2, -img.height + 6); g.restore();
     }
     // family
-    const fam = (img, x) => blit(g, img, x - cam, 233);
-    const run = t > 11 ? 14 : 8, wf = off => ['w0', 'w1', 'w2', 'w3'][((t * run + off) | 0) % 4];
+    const run = rt > 12 ? 12 : 7, wf = off => ['w0', 'w1', 'w2', 'w3'][((rt * run + off) | 0) % 4];
     const P = I.PORTAL, momBase = lx + 215, dadBase = lx + 260;
-    const portalAmt = t0 => t < t0 ? 0 : Math.min(smooth((t - t0) / 0.5), 1 - smooth((t - P.close) / 0.6));
-    drawPortal(g, momBase - cam, 232 - 40, 26, 44, t, portalAmt(P.mom), 1);
-    drawPortal(g, dadBase - cam, 232 - 40, 26, 44, t, portalAmt(P.dad), -1);
-    if (t < I.ZAP + 0.1) {
+    const portalAmt = t0 => t < t0 ? 0 : Math.min(smooth((t - t0) / 0.18), 1 - smooth((t - P.close) / 0.6));
+    drawPortal(g, momBase - cam, 232 - 40, 26, 44, rt, portalAmt(P.mom), 1);
+    drawPortal(g, dadBase - cam, 232 - 40, 26, 44, rt, portalAmt(P.dad), -1);
+    if (t < Z + 0.1) {
       const ran = Math.max(0, t - P.run), momX = momBase + ran * 150, dadX = dadBase + ran * 165;
-      const frame = (off, bob) => t < I.STOP ? wf(off) : t < P.run ? 'idle' : wf(off);
-      const sway = t >= P.mom + 0.3 && t < P.run ? Math.round(Math.sin(t * 5)) : 0;
-      for (const [img, x, hyp, off] of [[SPR.mom, momX, P.mom + 0.35, 2], [SPR.dad, dadX, P.dad + 0.35, 0]]) {
+      const frame = off => t < I.STOP ? wf(off) : t < P.run ? 'idle' : wf(off);
+      const sway = t >= P.mom + 0.1 && t < P.run ? Math.round(Math.sin(rt * 5)) : 0;
+      for (const [img, x, hyp, off] of [[SPR.mom, momX, P.mom + 0.12, 2], [SPR.dad, dadX, P.dad + 0.12, 0]]) {
         const key = frame(off), sp = img[key][2];
         blit(g, sp, x - cam, 233 + sway);
         if (t >= hyp) {   // hypnotised: spiral eyes
           const left = Math.round(x - cam - sp.width / 2), top = Math.round(233 + sway - sp.height), bob = (key === 'w1' || key === 'w3') ? -1.6 : 0;
-          drawSwirlEye(g, left + 19.5, top + 19 + bob, 4.3, t); drawSwirlEye(g, left + 30, top + 19 + bob, 4.3, t);
+          drawSwirlEye(g, left + 19.5, top + 19 + bob, 4.3, rt); drawSwirlEye(g, left + 30, top + 19 + bob, 4.3, rt);
         }
       }
     }
@@ -414,36 +442,36 @@ Scenes.intro = {
     let pose = 'idle', look = 1;
     if (t < I.STOP) pose = wf(1);
     else if (t < I.T1.strike) pose = 'idle';
-    else if (t < I.ZAP) { pose = 'hurt'; look = t < I.T2.strike ? 1 : -1; }
-    else if (t < I.ZAP + 0.6) pose = 'zap';
-    else if (t < 19.0) { pose = 'dazed'; look = 0; }
-    else if (t < 19.5) { pose = ((t * 12) | 0) % 2 ? 'dazed' : 'idle'; look = 0; }
-    else { look = t > I.END - 4.5 ? 1 : (((t - 19.5) / 1.3) | 0) % 2 ? 1 : -1; if (t > 21 && t < 21.2) pose = 'blink'; }
-    const img = SPR.sasq[pose][look + 1];
+    else if (t < Z) { pose = 'hurt'; look = t < I.T2.strike ? 1 : -1; }
+    else if (t < Z + 0.6) pose = 'zap';
+    else if (t < Z + 4.1) { pose = 'dazed'; look = 0; }
+    else if (t < Z + 4.6) { pose = ((rt * 12) | 0) % 2 ? 'dazed' : 'idle'; look = 0; }
+    else { look = rt > I.END - 4.5 ? 1 : (((t - Z - 4.6) / 1.3) | 0) % 2 ? 1 : -1; const bt = (t - Z - 4.6) % 3; if (bt > 2.8) pose = 'blink'; }
+    const img = SPR.sasq[pose][look + 1], za = this.age('zap');
     blit(g, img, lx + 7 - cam, 233);
-    if (t >= I.ZAP && t < I.ZAP + 0.35 && ((t * 40) | 0) % 2) { g.globalCompositeOperation = 'lighter'; blit(g, img, lx + 7 - cam, 233); g.globalCompositeOperation = 'source-over'; }
-    if (t > 15.4 && t < 19.0) for (let i = 0; i < 3; i++) {   // dizzy stars
-      const a = t * 4 + i * 2.1, sx = Math.round(lx + 7 - cam + Math.cos(a) * 12), sy = Math.round(233 - 33 + Math.sin(a) * 3);
+    if (za >= 0 && za < 0.35 && ((za * 40) | 0) % 2) { g.globalCompositeOperation = 'lighter'; blit(g, img, lx + 7 - cam, 233); g.globalCompositeOperation = 'source-over'; }
+    if (t > Z + 0.5 && t < Z + 4.1) for (let i = 0; i < 3; i++) {   // dizzy stars
+      const a = rt * 4 + i * 2.1, sx = Math.round(lx + 7 - cam + Math.cos(a) * 12), sy = Math.round(233 - 33 + Math.sin(a) * 3);
       g.fillStyle = '#ffe14a'; g.fillRect(sx, sy, 1, 1); g.fillRect(sx - 1, sy, 3, 1); g.fillRect(sx, sy - 1, 1, 3);
     }
     drawParts(g, cam);
-    // bubbles after the storm
-    if (t > 13.5 && t < 14.8) drawBubble(g, 'MOM! DAD!', lx + 7 - cam, 233 - 36, { typed: Math.floor((t - 13.5) * 20), maxChars: 12 });
-    if (t > 19.8 && t < 22.4) drawBubble(g, 'WHERE AM I...?', lx + 7 - cam, 233 - 36, { typed: Math.floor((t - 19.8) * 14), maxChars: 14 });
-    else if (t > 23.4 && t < 26) drawBubble(g, 'SO HUNGRY...', lx + 7 - cam, 233 - 36, { maxChars: 14 });
+    // Little Sasquatch's speech bubbles: only shown while no narration is on screen
+    for (const [a, b, txt, cps] of I.bubbles) if (rt >= a && rt < b) drawBubble(g, txt, lx + 7 - cam, 233 - 36, cps ? { typed: Math.floor((rt - a) * cps), maxChars: 14 } : { maxChars: 14 });
     // rain + tint
     drawRain(g, this.rainNow(), 1 / 60, -36);
     applyTint(g, env);
-    // lightning
-    const P2 = I.PORTAL;
-    for (const [T, tx, ty, sd] of [[I.T1, I.T1.x, 232 - I.T1.len + 4, 3], [I.T2, I.T2.x, 232 - I.T2.len + 4, 9]]) if (t >= T.strike && t < T.strike + 0.3 && ((t * 40) | 0) % 4 !== 3) drawBolt(g, tx, ty, sd, cam);
-    for (const [t0, bx, pal] of [[P2.mom, lx + 215, ['#ff9a2e', '#ffd9a0']], [P2.dad, lx + 260, ['#9b4dff', '#e0c4ff']]]) if (t >= t0 - 0.2 && t < t0 + 0.2 && ((t * 40) | 0) % 4 !== 3) drawBolt(g, bx, 232 - 78, (t0 * 7) | 0, cam, pal);
-    if (t >= I.ZAP && t < I.ZAP + 0.3) drawBolt(g, lx + 7, 233 - 32, 5, cam);
+    // lightning bolts (timed in real seconds from the strike)
+    const bolt = (name, len, fn) => { const a = this.age(name); if (a >= 0 && a < len && ((a * 40) | 0) % 4 !== 3) fn(); };
+    bolt('t1', 0.35, () => drawBolt(g, I.T1.x, 232 - I.T1.len + 4, 3, cam));
+    bolt('t2', 0.35, () => drawBolt(g, I.T2.x, 232 - I.T2.len + 4, 9, cam));
+    bolt('pm', 0.35, () => drawBolt(g, momBase, 232 - 78, 11, cam, ['#ff9a2e', '#ffd9a0']));
+    bolt('pd', 0.35, () => drawBolt(g, dadBase, 232 - 78, 17, cam, ['#9b4dff', '#e0c4ff']));
+    if (za >= 0 && za < 0.3) drawBolt(g, lx + 7, 233 - 32, 5, cam);
     const fl = this.flashNow();
     if (fl > 0) { g.fillStyle = '#fff'; g.globalAlpha = clamp(fl, 0, 1); g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
-    // captions
-    for (const [a, txt, b] of I.captions) if (t >= a && t < b) {
-      const n = Math.floor((t - a) * 34), alpha = clamp((b - t) * 3, 0, 1);
+    // narration captions (slower typewriter, long hold so there's time to read)
+    for (const [a, txt, b] of I.captions) if (rt >= a && rt < b) {
+      const n = Math.floor((rt - a) * I.CPS), alpha = clamp((b - rt) * 3, 0, 1);
       const lines = wrapText(txt, 52), h = lines.length * 11 + 10;
       g.globalAlpha = alpha; drawPanel(g, 40, 22, 400, h);
       let left = n; lines.forEach((l, i) => { drawText(g, l.slice(0, Math.max(0, left)), 52, 22 + 6 + i * 11, { color: '#fff6dc' }); left -= l.length + 1; });
@@ -451,17 +479,17 @@ Scenes.intro = {
     }
     // letterbox + level card
     const CARD = I.END - 3.6;
-    const bar = Math.round(14 * (1 - smooth((t - (I.END - 0.9)) / 0.8)));
+    const bar = Math.round(14 * (1 - smooth((rt - (I.END - 0.9)) / 0.8)));
     g.fillStyle = '#000'; g.fillRect(0, 0, VW, bar); g.fillRect(0, VH - bar, VW, bar);
-    if (t > CARD) {
-      const a = smooth((t - CARD) / 0.8) * (1 - smooth((t - (I.END - 0.9)) / 0.8));
+    if (rt > CARD) {
+      const a = smooth((rt - CARD) / 0.8) * (1 - smooth((rt - (I.END - 0.9)) / 0.8));
       g.fillStyle = '#000'; g.globalAlpha = a * 0.55; g.fillRect(0, 0, VW, VH); g.globalAlpha = a;
       drawText(g, 'LEVEL 1', 240, 96, { scale: 3, color: '#ffd37a', shadow: INK, align: 'center' });
       drawText(g, 'AFTER THE STORM', 240, 128, { scale: 2, color: '#fff3c9', shadow: INK, align: 'center' });
       g.globalAlpha = 1;
     }
-    if (t < CARD) drawText(g, 'ENTER: SKIP', 472, 258, { color: '#8a84a0', align: 'right' });
-    if (t < 1) { g.fillStyle = '#000'; g.globalAlpha = 1 - t; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
+    if (rt < CARD) drawText(g, 'ENTER: SKIP', 472, 258, { color: '#8a84a0', align: 'right' });
+    if (rt < 1) { g.fillStyle = '#000'; g.globalAlpha = 1 - rt; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
   },
 };
 
