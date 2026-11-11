@@ -65,6 +65,8 @@ const Snd = (() => {
     music(m) { if (m === mode) return; mode = m; step = 0; clearTimeout(timer); if (ctx && PATTERNS[m]) schedule(); },
     toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.8; return muted; },
     get muted() { return muted; },
+    get started() { return !!ctx; },
+    get mode() { return mode; },
     jump() { tone(300, 0.16, 'square', 0.07, 380); },
     land() { noise(0.07, 0.05, 500); },
     step() { noise(0.04, 0.025, 300); },

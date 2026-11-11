@@ -116,7 +116,7 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
   const furDD = '#241008';
   const furL = who === 'mom' ? '#84503c' : '#774030';
   const cream = '#f6edd3', creamD = '#e2d4ae';
-  const by = (p.bob || 0) + (p.sit ? 2.2 : 0);
+  const by = (p.bob || 0) + (p.sit ? 2.2 : 0) + (p.duck ? 4.4 : 0);
   const fx = look;
 
   // legs & feet
@@ -135,18 +135,28 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
     }
   }
   // body (dark belly shade underneath, fur on top)
+  if (p.duck) {            // crouched: short, wide, round body
+    P.ell(S(13), S(23.4), S(9.4), S(5.4), furD);
+    P.ell(S(13), S(22.6), S(9.4), S(4.8), fur);
+  } else {
   P.ell(S(13), S(20.7 + by), S(9), S(7.6), furD);
   P.ell(S(13), S(19.7 + by), S(9), S(6.9), fur);
   P.ell(S(10), S(17 + by), S(4), S(2.5), furL);
   for (const [x, y] of [[11, 18.5], [12, 19.5], [13, 18.5], [14, 19.5], [15, 18.5]]) P.rect(S(x - .5), S(y + by), S(1) < 1 ? 1 : S(1), S(1) < 1 ? 1 : S(1), furD);
-  if (who === 'dad') { P.rect(S(7), S(15.5 + by), S(12), S(2), '#3b6ea8'); P.rect(S(11), S(17 + by), S(4), S(2), '#3b6ea8'); }
+  }
+  if (who === 'dad' && !p.duck) { P.rect(S(7), S(15.5 + by), S(12), S(2), '#3b6ea8'); P.rect(S(11), S(17 + by), S(4), S(2), '#3b6ea8'); }
   // arms
   const aL = p.aL || 0, aR = p.aR || 0, ab = by * .6;
+  if (p.duck) {
+    P.ell(S(4.6), S(23.6), S(2.7), S(3.6), fur); P.ell(S(21.4), S(23.6), S(2.7), S(3.6), fur);
+    P.px(S(4), S(26.4), furDD); P.px(S(21.6), S(26.4), furDD);
+  } else {
   P.ell(S(4.3), S(20.2 + aL + ab), S(2.7), S(5.6), fur);
   P.ell(S(21.7), S(20.2 + aR + ab), S(2.7), S(5.6), fur);
   P.ell(S(3.7), S(18.5 + aL + ab), S(1), S(2.4), furL);
   P.px(S(3.6), S(25 + aL + ab), furDD); P.px(S(5), S(25 + aL + ab), furDD);
   P.px(S(21), S(25 + aR + ab), furDD); P.px(S(22.4), S(25 + aR + ab), furDD);
+  }
   // hair spikes behind head
   const hy = by * .9;
   for (const [cx, h] of [[6.5, 2.8], [9.5, 4.6], [13, 2.4], [16.8, 5], [19.8, 3]]) {
@@ -187,7 +197,7 @@ const SASQ_POSES = {
   idle: {}, w0: { lR: 3, aL: 1.5, aR: -1.5 }, w1: { bob: -1 }, w2: { lL: 3, aL: -1.5, aR: 1.5 }, w3: { bob: -1 },
   jump: { lL: 2, lR: 2, aL: -6, aR: -6, mouth: 1, bob: -1 }, fall: { lL: 1, lR: 1, aL: -4, aR: -4, mouth: 1 },
   hurt: { blink: 1, mouth: 1, aL: -4, aR: -4 }, eat1: { aL: -6.5, aR: -6.5, mouth: 1 }, eat2: { aL: -6.5, aR: -6.5, bob: -1 },
-  blink: { blink: 1 }, sit: { sit: 1 }, sitblink: { sit: 1, blink: 1 }, sitlook: { sit: 1, aL: -1, aR: -1 },
+  blink: { blink: 1 }, duck: { duck: 1 }, duckblink: { duck: 1, blink: 1 }, sit: { sit: 1 }, sitblink: { sit: 1, blink: 1 }, sitlook: { sit: 1, aL: -1, aR: -1 },
 };
 
 /* ------------------------------------------------------------------ */

@@ -23,6 +23,7 @@ addEventListener('keydown', e => {
   if (!e.repeat) Input.pressed[e.code] = true;
   Input.down[e.code] = true;
 });
+addEventListener('pointerdown', () => { Snd.init(); Input.pressed.Click = true; });
 addEventListener('keyup', e => { Input.down[e.code] = false; });
 addEventListener('blur', () => { Input.down = {}; Input.touch = {}; });
 function endFrameInput() { Input.pressed = {}; Input.touchPressed = {}; }
@@ -126,7 +127,7 @@ class Ranger {
     this.home = def.x; this.min = def.min; this.max = def.max;
     this.w = 12; this.h = 32; this.reset();
   }
-  reset() { this.x = this.home; this.dir = -1; this.state = 'patrol'; this.timer = 0; this.stun = 0; this.pause = 0; this.lostT = 0; this.anim = Math.random() * 3; this.moving = false; }
+  reset() { this.x = this.home; this.dir = -1; this.state = 'patrol'; this.timer = 0; this.stun = 0; this.pause = 0; this.lostT = 0; this.leaveT = 0; this.anim = Math.random() * 3; this.moving = false; }
   get top() { return groundAt(this.x) - this.h; }
   update(dt, p) {
     this.anim += dt; this.moving = false;
@@ -135,8 +136,11 @@ class Ranger {
     const canSee = !p.hidden && p.state === 'normal' && Math.abs(dx) < 140 && vertOK && (Math.sign(dx) === this.dir || Math.abs(dx) < 70);
     if (this.state === 'patrol') {
       if (this.pause > 0) this.pause -= dt;
-      else {
-        this.x += this.dir * 24 * dt; this.moving = true;
+      else if (p.hidden && Math.sign(dx) === this.dir && Math.abs(dx) < 46) {
+        this.dir = -this.dir; this.pause = 0.7;          // doesn't wander into a hiding spot
+      } else {
+        this.leaveT = Math.max(0, this.leaveT - dt);
+        this.x += this.dir * (this.leaveT > 0 ? 38 : 24) * dt; this.moving = true;
         if (this.x < this.min) { this.x = this.min; this.dir = 1; this.pause = 0.8 + Math.random(); }
         if (this.x > this.max) { this.x = this.max; this.dir = -1; this.pause = 0.8 + Math.random(); }
       }
@@ -147,14 +151,14 @@ class Ranger {
     } else if (this.state === 'chase') {
       if (p.hidden || !vertOK || Math.abs(dx) > 240 || p.state !== 'normal') {
         this.lostT += dt;
-        if (this.lostT > 0.9) { this.state = 'lost'; this.timer = 1.8; this.lostT = 0; }
+        if (this.lostT > (p.hidden ? 0.4 : 0.9)) { this.state = 'lost'; this.timer = 1.8; this.lostT = 0; }
       } else this.lostT = 0;
-      if (Math.abs(dx) > 5) { this.dir = dx < 0 ? -1 : 1; this.x += this.dir * 66 * dt; this.moving = true; }
+      if (!p.hidden && Math.abs(dx) > 5) { this.dir = dx < 0 ? -1 : 1; this.x += this.dir * 66 * dt; this.moving = true; }
       this.x = clamp(this.x, this.min - 24, this.max + 24);
     } else if (this.state === 'lost') {
       this.timer -= dt;
       if (canSee) this.spot(dx);
-      else if (this.timer <= 0) this.state = 'patrol';
+      else if (this.timer <= 0) { this.state = 'patrol'; this.dir = dx < 0 ? 1 : -1; this.leaveT = 3; this.pause = 0; }   // give up and wander off
     }
   }
   spot(dx) { this.state = 'alert'; this.timer = 0.5; this.dir = dx < 0 ? -1 : 1; Snd.alert(); }
@@ -185,7 +189,7 @@ const MAXV = 104, ACC = 760, FRIC = 950, AIRACC = 560, GRAV = 1000, JUMPV = -345
 
 function newPlayer() {
   return { x: L1.startX, y: groundAt(L1.startX) - 24, w: 14, h: 24, vx: 0, vy: 0, face: 1, onGround: true, coyote: 0, jumpBuf: 0,
-    hp: L1.startHp, inv: 0, lock: 0, hidden: false, eat: 0, anim: 0, state: 'normal', stepT: 0, blinkT: 2, wasAir: false, hurtAnim: 0 };
+    hp: L1.startHp, inv: 0, lock: 0, hidden: false, ducking: false, eat: 0, anim: 0, state: 'normal', stepT: 0, blinkT: 2, wasAir: false, hurtAnim: 0 };
 }
 
 /* ================================================================== */
@@ -198,8 +202,14 @@ const Scenes = {};
 /* ---------------------------- Title ---------------------------- */
 Scenes.title = {
   t: 0, state: { fireLit: false, cpActive: [], berries: [] },
-  enter() { this.t = 0; Snd.music('play'); },
-  update(dt) { this.t += dt; if (pressed('confirm')) { Snd.init(); go('intro'); } if (pressed('mute')) Snd.toggleMute(); },
+  armed: false,
+  enter() { this.t = 0; Snd.music('play'); this.armed = Snd.started; },
+  update(dt) {
+    this.t += dt;
+    if (pressed('mute')) Snd.toggleMute();
+    if (!this.armed) { if (Object.keys(Input.pressed).length || Input.touchPressed.confirm) { this.armed = true; Snd.init(); Snd.music('play'); } return; }
+    if (pressed('confirm')) go('intro');
+  },
   draw() {
     const cam = 760 + this.t * 16, env = envAt(0.4); env.rainbow = 0; env.rain = 0;
     drawBackdrop(g, cam, env, this.t);
@@ -214,7 +224,7 @@ Scenes.title = {
     drawText(g, 'FIND YOUR FAMILY', 240, 60, { scale: 3, color: '#ffd37a', shadow: '#3b1b13', align: 'center' });
     // bottom bar
     g.fillStyle = 'rgba(12,8,22,0.78)'; g.fillRect(0, 238, VW, 32);
-    if (((this.t * 1.6) | 0) % 2 === 0) drawText(g, 'PRESS ENTER TO START', 240, 243, { scale: 1, color: '#fff3c9', align: 'center' });
+    if (((this.t * 1.6) | 0) % 2 === 0) drawText(g, this.armed ? 'PRESS ENTER TO START' : 'PRESS ANY KEY OR CLICK', 240, 243, { scale: 1, color: '#fff3c9', align: 'center' });
     drawText(g, 'ARROWS OR WASD: MOVE   SPACE: JUMP   E: GRAB FOOD   DOWN: HIDE   M: SOUND', 240, 257, { color: '#b8aed0', align: 'center' });
   },
 };
@@ -356,7 +366,7 @@ Scenes.play = {
     const dh = parseFloat(params.get('hp')); if (!isNaN(dh) && !opts.noDebug) this.p.hp = dh;
     if (params.get('ending') && !opts.noDebug) { this.p.hp = L1.maxHp; this.p.x = L1.shelterX - 150; this.progress = 1; }
     this.cam = clamp(this.p.x + 7 - VW / 2, 0, L1.width - VW);
-    Snd.music('play');
+    Snd.music('sad');
     this.toast('LITTLE SASQUATCH IS HUNGRY! FIND FOOD!');
   },
   toast(text) { if (this.toasts.some(x => x.text === text)) return; this.toasts.push({ text, t: TOAST_TIME }); if (this.toasts.length > 3) this.toasts.shift(); },
@@ -400,11 +410,12 @@ Scenes.play = {
     if (p.state === 'faint') { p.vx = 0; p.vy = Math.min(p.vy + GRAV * dt, MAXFALL); moveBody(p, dt); return; }
     p.inv = Math.max(0, p.inv - dt); p.lock = Math.max(0, p.lock - dt); p.eat = Math.max(0, p.eat - dt);
     const inBush = L1.hideBushes.some(b => Math.abs(p.x + p.w / 2 - b) < 14);
-    p.hidden = held('down') && inBush && p.onGround && p.lock <= 0 && p.eat <= 0;
+    p.ducking = held('down') && p.onGround && p.lock <= 0 && p.eat <= 0;
+    p.hidden = p.ducking && inBush;
     let dir = 0;
     if (p.lock <= 0 && p.eat <= 0 && !p.hidden) { if (held('left')) dir--; if (held('right')) dir++; }
     if (dir) p.face = dir;
-    const target = dir * MAXV, a = p.onGround ? (dir ? ACC : FRIC) : (dir ? AIRACC : 220);
+    const target = dir * MAXV * (p.ducking ? 0.5 : 1), a = p.onGround ? (dir ? ACC : FRIC) : (dir ? AIRACC : 220);
     if (p.lock > 0 && p.inv > 0) { /* knocked back: keep velocity */ }
     else if (p.vx < target) p.vx = Math.min(target, p.vx + a * dt); else p.vx = Math.max(target, p.vx - a * dt);
     // jump
@@ -479,7 +490,7 @@ Scenes.play = {
   },
 
   rangerContacts() {
-    const p = this.p; if (p.state !== 'normal') return;
+    const p = this.p; if (p.state !== 'normal' || p.hidden) return;
     for (const r of this.rangers) {
       if (r.stun > 0) continue;
       if (overlap(p.x, p.y, p.w, p.h, r.x - 6, r.top, 12, r.h)) {
@@ -630,6 +641,7 @@ Scenes.play = {
     let pose = 'idle';
     if (p.state === 'faint') pose = (p.faintT * 3 | 0) % 2 ? 'hurt' : 'blink';
     else if (this.mode === 'ending' && this.sit) pose = (this.stageT || 0) % 5 > 4.85 ? 'sitblink' : 'sit';
+    else if (p.ducking) pose = p.blinkT < 0 && p.blinkT > -0.12 ? 'duckblink' : 'duck';
     else if (p.eat > 0) pose = ((p.eat * 7) | 0) % 2 ? 'eat1' : 'eat2';
     else if (p.lock > 0 && p.inv > 0) pose = 'hurt';
     else if (!p.onGround) pose = p.vy < 0 ? 'jump' : 'fall';
@@ -650,7 +662,7 @@ Scenes.play = {
       const tgt = this.interactTarget();
       if (tgt) this.drawKeyPrompt(tgt.x - cam, tgt.y - 34 + Math.round(Math.sin(this.t * 6) * 1.5), 'E');
     }
-    if (p.hidden) drawText(g, 'HIDING...', cx, Math.round(p.y - 14), { color: '#bff0c0', shadow: INK, align: 'center' });
+    if (p.hidden) drawText(g, 'HIDING...', cx, Math.round(p.y - 4), { color: '#bff0c0', shadow: INK, align: 'center' });
     if (this.hungryBubble > 0 && this.mode === 'play') drawBubble(g, 'TUMMY STILL GROWLY... NEED MORE FOOD!', cx, p.y - 8, { maxChars: 18, typed: Math.floor((2.8 - this.hungryBubble) * 40) });
   },
   interactTarget() {
