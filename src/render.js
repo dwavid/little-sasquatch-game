@@ -15,15 +15,18 @@ function initRender(g) {
   const tr = rng(2024); BG.decor = { trees: [], tufts: [], flowers: [], ferns: [] };
   for (let x = -1500; x < L1.width + 200; x += 26 + (tr() * 46 | 0)) {
     if (x > 5200 && x < 5460) continue;
+    if (x > -80 && x < 330) continue;   // the storm trees live here
     const forest = (x > 1500 && x < 2550) || (x > 3450 && x < 4350);
     if (!forest && tr() < 0.45) continue;
     const idx = (tr() * SPR.pines.length) | 0;
     BG.decor.trees.push({ x, idx, dy: (tr() * 3) | 0, shade: tr() < .35 });
   }
+  const inLog = x => L1.ground.some(s => s[3] === 'log' && x > s[0] - 14 && x < s[1] + 14);
   for (let x = -1500; x < L1.width; x += 14 + (tr() * 20 | 0)) {
+    if (inLog(x)) continue;
     if (tr() < .5) BG.decor.tufts.push({ x, i: (tr() * 3) | 0 }); else if (tr() < .4) BG.decor.flowers.push({ x, i: (tr() * 4) | 0 });
   }
-  for (let x = -1500; x < L1.width; x += 90 + (tr() * 160 | 0)) BG.decor.ferns.push({ x });
+  for (let x = -1500; x < L1.width; x += 90 + (tr() * 160 | 0)) if (!inLog(x)) BG.decor.ferns.push({ x });
   BG.ready = true;
 }
 
@@ -197,14 +200,14 @@ function drawCave(g, cam) {
   g.drawImage(SPR.cave, Math.round(L1.shelterX - 130 + 4 - cam), L1.baseY - SPR.cave.height);
 }
 
-function drawTerrain(g, cam) {
+function drawTerrain(g, cam, hide) {
   g.save(); g.translate(-cam, 0);
   for (let i = 0; i < L1.ground.length; i++) {
     const s = L1.ground[i];
     if (s[1] < cam - 8 || s[0] > cam + VW + 8) continue;
     const kind = s[3], x0 = Math.max(s[0], cam - 6), x1 = Math.min(s[1], cam + VW + 6), y = s[2];
     let top = y;
-    if (kind === 'boulder' || kind === 'crate') top = L1.baseY;   // draw plain ground underneath, object on top
+    if (kind === 'boulder' || kind === 'crate' || kind === 'log') top = L1.baseY;   // draw plain ground underneath, object on top
     g.fillStyle = kind === 'rock' ? BG.patRock : BG.patDirt;
     g.fillRect(x0, top, x1 - x0, VH - top + 2);
     // shaded lower edge
@@ -219,8 +222,10 @@ function drawTerrain(g, cam) {
     for (let x = Math.ceil(x0 / 7) * 7; x < x1; x += 7) { g.fillStyle = '#6fd066'; g.fillRect(x, top - 1, 1, 1); if (x % 3 === 0) g.fillRect(x + 2, top - 1, 1, 1); }
     if (kind === 'boulder') { g.drawImage(SPR.rock, s[0], y); continue; }
     if (kind === 'crate') { g.drawImage(SPR.crate, s[0], y); continue; }
+    if (kind === 'log') { if (!(hide && hide[s[0]])) g.drawImage(SPR.fallen[s[4]], s[0] - 2, L1.baseY - 26); continue; }
     // darker cliff faces where the neighbour is lower
-    const L = L1.ground[i - 1], R = L1.ground[i + 1];
+    const isObj = n => n && (n[3] === 'log' || n[3] === 'boulder' || n[3] === 'crate');
+    const L = isObj(L1.ground[i - 1]) ? null : L1.ground[i - 1], R = isObj(L1.ground[i + 1]) ? null : L1.ground[i + 1];
     if (L && L[2] > y) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(s[0], y + 6, 3, L[2] - y); g.fillStyle = INK; g.fillRect(s[0] - 1, y, 1, L[2] - y + 6); }
     if (R && R[2] > y) { g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(s[1] - 3, y + 6, 3, R[2] - y); g.fillStyle = INK; g.fillRect(s[1], y, 1, R[2] - y + 6); }
     if (L && L[2] < y) { g.fillStyle = INK; g.fillRect(s[0], L[2], 1, y - L[2]); }

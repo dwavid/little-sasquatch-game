@@ -230,101 +230,158 @@ Scenes.title = {
 };
 
 /* ---------------------------- Intro ---------------------------- */
+/* The family hikes, a storm hits, lightning splits two trees (they crash down between
+   Little Sasquatch and his parents), then a bolt hits Little Sasquatch on the head. */
 const INTRO = {
   sunny: null, storm: null, clear: null,
+  STOP: 11.8, END: 29.4,
+  T1: { x: 150, len: 100, strike: 12.0, fall: 12.3, land: 13.1 },     // big tree: falls between him and his family
+  T2: { x: 0, len: 66, strike: 13.8, fall: 14.05, land: 14.65 },      // small tree: crashes down right behind him
+  ZAP: 14.9,
   captions: [
     [0.8, 'HIGH IN A QUIET VALLEY, A SASQUATCH FAMILY WENT OUT FOR A HIKE.', 6.6],
     [7.2, 'BUT MOUNTAIN WEATHER CAN CHANGE IN A HURRY...', 11.0],
-    [11.2, 'THEN... A HUGE STORM HIT!', 14.4],
-    [15.6, 'WHEN THE STORM PASSED, LITTLE SASQUATCH WAS ALL ALONE.', 20.0],
+    [11.4, 'THEN A HUGE STORM HIT! TREES CRASHED DOWN BETWEEN THE FAMILY!', 14.5],
+    [14.6, 'AND A BOLT OF LIGHTNING STRUCK LITTLE SASQUATCH ON THE HEAD!', 16.6],
+    [16.9, 'WHEN THE STORM PASSED, LITTLE SASQUATCH WAS ALL ALONE.', 20.6],
+    [20.9, "THE LIGHTNING HAD ZAPPED HIS MEMORY. HE COULDN'T REMEMBER HIS FAMILY AT ALL.", 25.4],
   ],
-  flashes: [11.5, 12.6, 13.4],
-  END: 24,
 };
-function introSpeed(t) { return t < 7 ? 36 : t < 11 ? 46 : 74; }
-function introS(t) { // distance walked
+function introS(t) { // distance the family has walked by time t
   const a = Math.min(t, 7) * 36, b = clamp(t - 7, 0, 4) * 46, c = Math.max(0, t - 11) * 74;
   return a + b + c;
 }
+function boltLine(g, ax, ay, bx, by, w) {
+  const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) | 0;
+  for (let i = 0; i <= n; i++) g.fillRect(Math.round(lerp(ax, bx, i / n) - w / 2), Math.round(lerp(ay, by, i / n)), w, 2);
+}
+function drawBolt(g, x, ty, seed, cam) {
+  const r = rng(seed), pts = [[x - cam + 30 * (r() - .5) + 40, 0]];
+  for (let i = 1; i < 7; i++) pts.push([lerp(pts[0][0], x - cam, i / 7) + (r() - .5) * 34, ty * i / 7]);
+  pts.push([x - cam, ty]);
+  for (const [w, col, al] of [[9, '#fff3a0', 0.35], [5, '#fff8c8', 0.7], [2, '#ffffff', 1]]) {
+    g.fillStyle = col; g.globalAlpha = al;
+    for (let i = 0; i < pts.length - 1; i++) boltLine(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w);
+  }
+  g.globalAlpha = 1;
+}
 Scenes.intro = {
-  t: 0, flashAt: [], state: { fireLit: false, cpActive: [], berries: [], hideSigns: true },
+  t: 0, state: { fireLit: false, cpActive: [], berries: [], hideSigns: true },
   enter() {
-    this.t = 0; this.flashAt = INTRO.flashes.slice(); this.thunderDone = {};
-    Parts.length = 0;
+    this.t = 0; this.shake = 0; Parts.length = 0;
     INTRO.sunny = envAt(0.35); INTRO.sunny.rain = 0; INTRO.sunny.over = 0.04; INTRO.sunny.rainbow = 0; INTRO.sunny.sun = 0.8;
-    INTRO.storm = envNum({ top: '#2c3342', bot: '#566170', tint: '#7a8594', over: 1, sun: 0, rain: 1 });
+    INTRO.storm = envNum({ top: '#2a303e', bot: '#505b6a', tint: '#737e8d', over: 1, sun: 0, rain: 1 });
     INTRO.clear = envAt(0); INTRO.clear.rainbow = 0;
     Snd.music('play');
   },
   update(dt) {
-    const prev = this.t; this.t += dt;
-    if (pressed('confirm') && this.t > 0.6) { go('play'); return; }
-    if (this.t > INTRO.END) { setScene('play', { fromIntro: true }); return; }
-    for (const f of INTRO.flashes) if (prev < f && this.t >= f) { Snd.thunder(); }
-    if (prev < 7.6 && this.t >= 7.6) Snd.music('none');
-    if (prev < 15 && this.t >= 15) Snd.music('sad');
-    if (prev < 13.9 && this.t >= 13.9) Snd.whoosh();
+    const prev = this.t, I = INTRO; this.t += dt; const t = this.t;
+    if (pressed('confirm') && t > 0.6) { go('play'); return; }
+    if (t > I.END) { setScene('play', { fromIntro: true }); return; }
+    const cross = x => prev < x && t >= x;
+    if (cross(11.4)) Snd.thunder();
+    for (const T of [I.T1, I.T2]) {
+      if (cross(T.strike)) { Snd.zap(); Snd.thunder(); this.shake = 0.4; }
+      if (cross(T.land)) { Snd.crash(); this.shake = 0.7; this.dustLanding(T); }
+      if (t > T.strike && t < T.land) this.fire(T);
+    }
+    if (cross(I.ZAP)) { Snd.zap(); Snd.thunder(); this.shake = 0.9; }
+    if (cross(7.6)) Snd.music('none');
+    if (cross(16.6)) Snd.music('sad');
+    if (cross(23.4)) Snd.growl();
+    if (t > 15.5 && t < 19 && Math.random() < dt * 14) spawn({ x: 87 + (Math.random() - .5) * 8, y: 232 - 30, vx: (Math.random() - .5) * 8, vy: -16 - Math.random() * 14, life: 1.4, col: Math.random() < .5 ? '#6b6b73' : '#8a8a92', size: 2 });
+    if (cross(19.0)) for (let i = 0; i < 14; i++) spawn({ x: 87, y: 232 - 26, vx: (Math.random() - .5) * 90, vy: -Math.random() * 50, g: 40, life: 0.7, col: '#8a8a92', size: 3 });
+    this.shake = Math.max(0, this.shake - dt * 1.6);
+    updateParts(dt);
+  },
+  treeAngle(T, t) { // 0 = standing, PI/2 = lying to the right
+    if (t < T.fall) return 0; if (t >= T.land) return Math.PI / 2;
+    const k = (t - T.fall) / (T.land - T.fall); return Math.PI / 2 * k * k;
+  },
+  fire(T) {
+    const a = this.treeAngle(T, this.t), h = T.len;
+    for (let i = 0; i < 2; i++) spawn({ x: T.x + Math.sin(a) * h * (0.75 + Math.random() * .25), y: 232 - Math.cos(a) * h * (0.75 + Math.random() * .25), vx: (Math.random() - .5) * 14, vy: -20 - Math.random() * 25, life: 0.5, col: Math.random() < .5 ? '#ff9a2e' : '#ffe27a', size: 2 });
+  },
+  dustLanding(T) {
+    for (let i = 0; i < 26; i++) spawn({ x: T.x + Math.random() * T.len, y: 230, vx: (Math.random() - .5) * 60, vy: -Math.random() * 40, g: 30, life: 0.9, col: Math.random() < .5 ? '#b9a98a' : '#d9ccb0', size: 3 });
   },
   envNow() {
     const t = this.t;
     if (t < 6.5) return INTRO.sunny;
     if (t < 11) return lerpEnv(INTRO.sunny, INTRO.storm, smooth((t - 6.5) / 3.5));
-    if (t < 15.5) return INTRO.storm;
-    return lerpEnv(INTRO.storm, INTRO.clear, smooth((t - 15.5) / 4));
+    if (t < 16.5) return INTRO.storm;
+    return lerpEnv(INTRO.storm, INTRO.clear, smooth((t - 16.5) / 4.5));
   },
   rainNow() {
     const t = this.t;
     if (t < 7.5) return 0; if (t < 9) return (t - 7.5) / 1.5 * 0.5; if (t < 11) return 0.5 + (t - 9) / 2 * 0.3;
-    if (t < 14.6) return Math.min(1, 0.8 + (t - 11) * .1); if (t < 18) return Math.max(0.35, 1 - (t - 14.6) / 3.4 * 0.65) * (1 - smooth((t - 15.5) / 3.5) * .3) * (t > 17 ? clamp(1 - (t - 17) / 2.2, 0, 1) : 1);
-    return 0;
+    if (t < 15) return Math.min(1, 0.8 + (t - 11) * .1);
+    if (t < 19) return 1 - (t - 15) / 4 * 0.6;
+    return Math.max(0, 0.4 - (t - 19) / 3 * 0.4);
+  },
+  flashNow() {
+    const t = this.t; let f = 0;
+    const hit = (t0, pk, dur) => { if (t >= t0 && t < t0 + dur) f = Math.max(f, pk * (1 - (t - t0) / dur) * (((t - t0) * 30 | 0) % 5 === 3 ? 0.5 : 1)); };
+    hit(11.4, 0.4, 0.5); hit(INTRO.T1.strike, 0.8, 0.5); hit(INTRO.T2.strike, 0.8, 0.5);
+    if (t >= INTRO.ZAP && t < 16.6) f = Math.max(f, t < INTRO.ZAP + 0.22 ? 0.3 : t < 15.6 ? 1 : 1 - smooth((t - 15.6) / 1.0));
+    return f;
   },
   draw() {
-    const t = this.t, env = this.envNow();
-    const lx = 80 + introS(Math.min(t, 12.4)) - introS(12.4);
-    let cam = t < 12.4 ? lx - 200 : lerp(-120, 0, smooth((t - 14.5) / 4));
-    cam = Math.round(cam);
+    const t = this.t, env = this.envNow(), I = INTRO;
+    const lx = 80 + introS(Math.min(t, I.STOP)) - introS(I.STOP);     // Little Sasquatch (ends at x=80, where the level starts)
+    const sh = this.shake > 0 ? Math.round((Math.random() - .5) * 8 * this.shake) : 0;
+    const cam = Math.round(lx - 80) + sh;
+    const hide = { [I.T1.x - 6]: t < I.T1.land, [I.T2.x - 6]: t < I.T2.land };
     drawBackdrop(g, cam, env, t);
-    drawTrees(g, cam); drawTerrain(g, cam); drawScenery(g, cam, t, this.state);
+    drawTrees(g, cam);
+    // trees that are still standing
+    for (const [T, img] of [[I.T1, SPR.treeA], [I.T2, SPR.treeB]]) if (t < T.fall) blit(g, img, T.x - cam, 232 + 4);
+    drawTerrain(g, cam, hide); drawScenery(g, cam, t, this.state);
+    // falling trees
+    for (const [T, img] of [[I.T1, SPR.treeA], [I.T2, SPR.treeB]]) if (t >= T.fall && t < T.land) {
+      g.save(); g.translate(Math.round(T.x - cam), 232 - 2); g.rotate(this.treeAngle(T, t)); g.drawImage(img, -img.width / 2, -img.height + 6); g.restore();
+    }
     // family
-    const fam = (img, x, who) => blit(g, img, x - cam, groundAt(x) + 1);
-    const run = t > 11 ? 14 : 8;
-    const wf = off => ['w0', 'w1', 'w2', 'w3'][((t * run + off) | 0) % 4];
-    const littleStopped = t >= 12.4;
-    if (!littleStopped) {
-      // dad, mom, little walking together
-      const dadX = lx + 118, momX = lx + 58;
-      fam(SPR.dad[wf(0)][2], dadX); fam(SPR.mom[wf(2)][2], momX);
-      fam(SPR.sasq[wf(1)][2], lx + 7);
-    } else {
-      const dt2 = t - 12.4, spd = 95;
-      const a = clamp(1 - (dt2 - 0.3) / 1.4, 0, 1);
-      if (a > 0) {
-        g.globalAlpha = a;
-        fam(SPR.dad[wf(0)][2], lx + 118 + dt2 * spd); fam(SPR.mom[wf(2)][2], lx + 58 + dt2 * spd * 0.95);
-        g.globalAlpha = 1;
-      }
-      let pose = 'hurt', look = 1;
-      if (t > 15) { pose = 'idle'; look = (((t - 15) / 1.1) | 0) % 2 ? 0 : -1; if (t > 17.6) look = 1; if (t > 16 && t < 16.2) pose = 'blink'; }
-      fam(SPR.sasq[pose][look + 1], lx + 7);
-      if (t > 13.9 && t < 16) { /* hidden by rain & flash */ }
+    const fam = (img, x) => blit(g, img, x - cam, 233);
+    const run = t > 11 ? 14 : 8, wf = off => ['w0', 'w1', 'w2', 'w3'][((t * run + off) | 0) % 4];
+    const rd = clamp(t - I.STOP, 0, 1.5) * 60;
+    if (t < I.ZAP + 0.1) {
+      const momX = lx + 215 + rd, dadX = lx + 260 + rd * 1.2, called = t >= 13.3, panic = ((t * 4) | 0) % 2 ? 'jump' : 'idle';
+      const pose = off => !called ? wf(off) : panic;
+      fam(SPR.mom[pose(2)][called ? 0 : 2], momX); fam(SPR.dad[pose(0)][called ? 0 : 2], dadX);
+      if (t > 13.4 && t < 14.8) drawBubble(g, 'LITTLE ONE!', momX - cam, 233 - 56, { maxChars: 12 });
+      if (t > 13.9 && t < 14.8) drawBubble(g, 'HOLD ON!', dadX - cam, 233 - 62, { maxChars: 12 });
     }
-    // speech after the storm
-    if (t > 17.4 && t < 20.2) {
-      const full = 'MOM? DAD?';
-      drawBubble(g, full, lx + 7 - cam, groundAt(lx) - 34, { typed: Math.floor((t - 17.4) * 12), maxChars: 12 });
-    } else if (t >= 20.2 && t < 22.6) {
-      drawBubble(g, '...?', lx + 7 - cam, groundAt(lx) - 34, { maxChars: 12 });
+    // Little Sasquatch
+    let pose = 'idle', look = 1;
+    if (t < I.STOP) pose = wf(1);
+    else if (t < I.T1.strike) pose = 'idle';
+    else if (t < I.ZAP) { pose = 'hurt'; look = t < I.T2.strike ? 1 : -1; }
+    else if (t < I.ZAP + 0.6) pose = 'zap';
+    else if (t < 19.0) { pose = 'dazed'; look = 0; }
+    else if (t < 19.5) { pose = ((t * 12) | 0) % 2 ? 'dazed' : 'idle'; look = 0; }
+    else { look = t > I.END - 4.5 ? 1 : (((t - 19.5) / 1.3) | 0) % 2 ? 1 : -1; if (t > 21 && t < 21.2) pose = 'blink'; }
+    const img = SPR.sasq[pose][look + 1];
+    blit(g, img, lx + 7 - cam, 233);
+    if (t >= I.ZAP && t < I.ZAP + 0.35 && ((t * 40) | 0) % 2) { g.globalCompositeOperation = 'lighter'; blit(g, img, lx + 7 - cam, 233); g.globalCompositeOperation = 'source-over'; }
+    if (t > 15.4 && t < 19.0) for (let i = 0; i < 3; i++) {   // dizzy stars
+      const a = t * 4 + i * 2.1, sx = Math.round(lx + 7 - cam + Math.cos(a) * 12), sy = Math.round(233 - 33 + Math.sin(a) * 3);
+      g.fillStyle = '#ffe14a'; g.fillRect(sx, sy, 1, 1); g.fillRect(sx - 1, sy, 3, 1); g.fillRect(sx, sy - 1, 1, 3);
     }
+    drawParts(g, cam);
+    // bubbles after the storm
+    if (t > 19.8 && t < 22.4) drawBubble(g, 'WHERE AM I...?', lx + 7 - cam, 233 - 36, { typed: Math.floor((t - 19.8) * 14), maxChars: 14 });
+    else if (t > 23.4 && t < 26) drawBubble(g, 'SO HUNGRY...', lx + 7 - cam, 233 - 36, { maxChars: 14 });
     // rain + tint
     drawRain(g, this.rainNow(), 1 / 60, -36);
     applyTint(g, env);
     // lightning
-    let fl = 0;
-    for (const f of INTRO.flashes) if (t >= f && t < f + 0.5) fl = Math.max(fl, (1 - (t - f) / 0.5) * (((t - f) * 30 | 0) % 5 === 3 ? 0.4 : 0.9));
-    if (t >= 13.7 && t < 15.4) fl = Math.max(fl, t < 14.3 ? smooth((t - 13.7) / 0.6) : 1 - smooth((t - 14.3) / 1.1));
+    for (const [T, tx, ty, sd] of [[I.T1, I.T1.x, 232 - I.T1.len + 4, 3], [I.T2, I.T2.x, 232 - I.T2.len + 4, 9]]) if (t >= T.strike && t < T.strike + 0.3 && ((t * 40) | 0) % 4 !== 3) drawBolt(g, tx, ty, sd, cam);
+    if (t >= I.ZAP && t < I.ZAP + 0.3) drawBolt(g, lx + 7, 233 - 32, 5, cam);
+    const fl = this.flashNow();
     if (fl > 0) { g.fillStyle = '#fff'; g.globalAlpha = clamp(fl, 0, 1); g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
     // captions
-    for (const [a, txt, b] of INTRO.captions) if (t >= a && t < b) {
+    for (const [a, txt, b] of I.captions) if (t >= a && t < b) {
       const n = Math.floor((t - a) * 34), alpha = clamp((b - t) * 3, 0, 1);
       const lines = wrapText(txt, 52), h = lines.length * 11 + 10;
       g.globalAlpha = alpha; drawPanel(g, 40, 22, 400, h);
@@ -332,16 +389,17 @@ Scenes.intro = {
       g.globalAlpha = 1;
     }
     // letterbox + level card
-    const bar = Math.round(14 * (1 - smooth((t - (INTRO.END - 0.9)) / 0.8)));
+    const CARD = I.END - 3.6;
+    const bar = Math.round(14 * (1 - smooth((t - (I.END - 0.9)) / 0.8)));
     g.fillStyle = '#000'; g.fillRect(0, 0, VW, bar); g.fillRect(0, VH - bar, VW, bar);
-    if (t > 20.4) {
-      const a = smooth((t - 20.4) / 0.8) * (1 - smooth((t - (INTRO.END - 0.9)) / 0.8));
+    if (t > CARD) {
+      const a = smooth((t - CARD) / 0.8) * (1 - smooth((t - (I.END - 0.9)) / 0.8));
       g.fillStyle = '#000'; g.globalAlpha = a * 0.55; g.fillRect(0, 0, VW, VH); g.globalAlpha = a;
       drawText(g, 'LEVEL 1', 240, 96, { scale: 3, color: '#ffd37a', shadow: INK, align: 'center' });
       drawText(g, 'AFTER THE STORM', 240, 128, { scale: 2, color: '#fff3c9', shadow: INK, align: 'center' });
       g.globalAlpha = 1;
     }
-    if (t < 20) drawText(g, 'ENTER: SKIP', 472, 258, { color: '#8a84a0', align: 'right' });
+    if (t < CARD) drawText(g, 'ENTER: SKIP', 472, 258, { color: '#8a84a0', align: 'right' });
     if (t < 1) { g.fillStyle = '#000'; g.globalAlpha = 1 - t; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
   },
 };
@@ -558,16 +616,14 @@ Scenes.play = {
   },
   DIALOG: [
     { text: 'LITTLE SASQUATCH IS FULL, SAFE, AND WARM.', time: 3.6 },
-    { text: 'BUT THE FIRE IS TOO QUIET WITHOUT HIS FAMILY.', time: 3.8 },
-    { text: 'WAIT... WHAT WAS THAT SOUND?', time: 2.4, howl: true },
-    { text: 'IT SOUNDED LIKE A FAMILIAR HOWL, FAR AWAY...', time: 4.2, look: true },
-    { text: 'TOMORROW, HE WILL KEEP LOOKING.', time: 3.8 },
+    { text: "BUT SOMETHING FEELS MISSING... HE JUST CAN'T REMEMBER WHAT.", time: 4.6 },
+    { text: 'TOMORROW, HE WILL KEEP EXPLORING THE VALLEY.', time: 4.6, grunt: true, look: true },
   ],
   updateDialog(dt) {
     this.dialogT += dt;
     const d = this.DIALOG[this.dialogIdx];
     if (!d) { this.done = true; if (pressed('confirm')) go('title'); return; }
-    if (d.howl && !d.played && this.dialogT > 0.9) { d.played = true; Snd.howl(); }
+    if (d.grunt && !d.played && this.dialogT > 0.9) { d.played = true; Snd.grunt(); this.shake = 0.35; }
     if (d.look) this.p.face = this.dialogT > 1.2 ? -1 : this.p.face;
     if (this.dialogT > d.time) { this.dialogIdx++; this.dialogT = 0; if (this.DIALOG[this.dialogIdx - 1] && this.dialogIdx === this.DIALOG.length) { this.doneT = 0; } }
     if (pressed('confirm') && this.dialogT > 0.5) { this.dialogT = d.time; }
@@ -709,7 +765,7 @@ Scenes.play = {
     });
     // sign
     if (this.mode === 'play' && p.state === 'normal') {
-      const s = L1.signs.find(s => Math.abs(p.x + 7 - s.x) < 34);
+      const s = L1.signs.filter(s => Math.abs(p.x + 7 - s.x) < 34).sort((a, b) => Math.abs(p.x + 7 - a.x) - Math.abs(p.x + 7 - b.x))[0];
       if (s) {
         const lines = wrapText(s.text, 46), w = 46 * 6 + 20, h = lines.length * 11 + 12;
         drawPanel(g, 240 - w / 2, 262 - h - 4, w, h, { fill: 'rgba(54,36,22,0.93)', border: '#e0b070' });

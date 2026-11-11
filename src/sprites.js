@@ -159,7 +159,8 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
   }
   // hair spikes behind head
   const hy = by * .9;
-  for (const [cx, h] of [[6.5, 2.8], [9.5, 4.6], [13, 2.4], [16.8, 5], [19.8, 3]]) {
+  const spikes = p.frizz ? [[4.5, 3.5], [6.5, 6], [9.5, 7.5], [13, 5], [16.8, 8], [19.8, 6], [22, 3.5]] : [[6.5, 2.8], [9.5, 4.6], [13, 2.4], [16.8, 5], [19.8, 3]];
+  for (const [cx, h] of spikes) {
     P.tri(S(cx - 2.4), S(5.6 + hy), S(cx), S(5.6 + hy - h), S(cx + 2.4), S(5.6 + hy), fur);
   }
   // head
@@ -167,6 +168,10 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
   P.ell(S(8), S(6.8 + hy), S(3), S(1.6), furL);
   // face mask
   P.ell(S(13 + fx), S(11.4 + hy), S(7.7), S(5.7), cream);
+  if (p.soot) {   // singed face
+    P.g.globalAlpha = 0.34; P.ell(S(13 + fx), S(11.4 + hy), S(7.7), S(5.7), '#3a2c24'); P.g.globalAlpha = 1;
+    P.rect(S(11 + fx), S(7 + hy), S(4), 1, '#1c120e'); P.px(S(8 + fx), S(12 + hy), '#1c120e'); P.px(S(18 + fx), S(13 + hy), '#1c120e');
+  }
   P.tri(S(10.3 + fx), S(5.3 + hy), S(15.7 + fx), S(5.3 + hy), S(13 + fx), S(8.3 + hy), fur);
   // eyes
   const er = p.blink ? .6 : 2.6, ey = S(10.8 + hy);
@@ -179,7 +184,11 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
   } else {
     const my = Math.round(S(14.2 + hy)), u = Math.max(1, Math.round(k));
     P.rect(S(9.5 + fx), my, S(8) + u, u, INK);                 // thin mouth line
-    for (const tx of [9.5, 16]) P.rect(Math.round(S(tx + fx)), my + u, u, 2 * u, '#ffffff');   // two small tusks, no outline
+    for (const [tx, side] of [[9.5, 1], [16, 0]]) {      // two small tusks pointing up, no outline
+      const x0 = Math.round(S(tx + fx));
+      P.rect(x0, my + 2 * u, 2 * u, u, '#ffffff');              // wide base
+      P.rect(x0 + side * u, my + u, u, u, '#ffffff');           // tip, touching the mouth line
+    }
   }
   // accessories
   if (who === 'mom') {
@@ -197,7 +206,7 @@ const SASQ_POSES = {
   idle: {}, w0: { lR: 3, aL: 1.5, aR: -1.5 }, w1: { bob: -1 }, w2: { lL: 3, aL: -1.5, aR: 1.5 }, w3: { bob: -1 },
   jump: { lL: 2, lR: 2, aL: -6, aR: -6, mouth: 1, bob: -1 }, fall: { lL: 1, lR: 1, aL: -4, aR: -4, mouth: 1 },
   hurt: { blink: 1, mouth: 1, aL: -4, aR: -4 }, eat1: { aL: -6.5, aR: -6.5, mouth: 1 }, eat2: { aL: -6.5, aR: -6.5, bob: -1 },
-  blink: { blink: 1 }, duck: { duck: 1 }, duckblink: { duck: 1, blink: 1 }, sit: { sit: 1 }, sitblink: { sit: 1, blink: 1 }, sitlook: { sit: 1, aL: -1, aR: -1 },
+  blink: { blink: 1 }, zap: { frizz: 1, soot: 1, mouth: 1, aL: -6, aR: -6 }, dazed: { frizz: 1, soot: 1 }, duck: { duck: 1 }, duckblink: { duck: 1, blink: 1 }, sit: { sit: 1 }, sitblink: { sit: 1, blink: 1 }, sitlook: { sit: 1, aL: -1, aR: -1 },
 };
 
 /* ------------------------------------------------------------------ */
@@ -304,6 +313,17 @@ function pine(w, h, seed, pal) {
     P.rect(w / 2 - lw / 2 + 1, y1 - 1, lw - 2, 1, pal[2]);
   }
   P.outline(pal[3] || '#10301a');
+  return P.c;
+}
+/* A tree lying on its side. Its base (stump) is at x=6 and the tip is `len` pixels to the right. */
+function fallenLog(len) {
+  const W = len + 24, H = 26, P = new Pix(W, H), top = 10;
+  P.rect(6, top, len, 16, '#6b4524'); P.rect(6, top, len, 4, '#8a5a30'); P.rect(6, top + 12, len, 4, '#4a2f1e');
+  for (let x = 16; x < len - 10; x += 13) { P.rect(x, top + 6, 3, 1, '#4a2f1e'); P.rect(x + 6, top + 9, 2, 1, '#4a2f1e'); }
+  P.poly([[2, H], [3, 5], [5, 9], [7, 2], [10, 8], [12, 4], [14, H]], '#7a4c28');       // splintered stump
+  P.rect(3, 12, 2, 14, '#8a5a30'); P.px(8, 8, '#d9b07a');
+  for (const [cx, cy, rx, ry, c] of [[len - 10, 18, 11, 7, '#256a33'], [len + 2, 17, 12, 9, '#2f7a3b'], [len + 12, 19, 8, 6, '#256a33'], [len - 2, 13, 7, 4, '#4aa05a']]) P.ell(cx, cy, rx, ry, c);
+  P.outline(INK);
   return P.c;
 }
 function boulder(w, h, seed, base = '#8a8d98', hi = '#a5a8b3', lo = '#6a6d78') {
@@ -628,6 +648,8 @@ function buildSprites() {
   SPR.rocks = [boulder(18, 10, 9), boulder(26, 13, 21), boulder(12, 7, 4)];
   SPR.crate = crate(32, 18);
   SPR.cave = makeCave();
+  SPR.treeA = pine(46, 100, 501, treePals[0]); SPR.treeB = pine(36, 66, 502, treePals[1]);
+  SPR.fallen = { 100: fallenLog(100), 66: fallenLog(66) };
   SPR.puddle = puddle();
   SPR.fire = [0, 1, 2, 3].map(f => campfire(f, true)); SPR.fireOff = campfire(0, false);
   SPR.cloudW = [0, 1, 2, 3].map(i => cloud(110 + i * 20, 34 + i * 4, 31 + i * 5, '#ffffff', '#d9e4f0'));

@@ -84,10 +84,12 @@ const Snd = (() => {
     whoosh() { noise(0.7, 0.12, 2400, 0, 2); },
     spark() { tone(1200, 0.06, 'square', 0.04, 600); },
     ignite() { noise(0.5, 0.12, 1800, 0, 1); tone(220, 0.3, 'triangle', 0.07, 200); },
-    howl() { // distant "awooo"
-      tone(260, 1.6, 'sine', 0.06, 190); tone(262, 1.6, 'sine', 0.04, 150, 0.05);
-      tone(390, 1.2, 'sine', 0.025, 80, 0.3);
+    grunt() { // a big, loud grunt
+      tone(120, 0.28, 'sawtooth', 0.32, -55); tone(78, 0.36, 'square', 0.2, -25, 0.02);
+      noise(0.3, 0.3, 320, 0, 1.2); tone(95, 0.22, 'sawtooth', 0.26, -40, 0.34); noise(0.2, 0.22, 260, 0.34, 1);
     },
+    zap() { tone(2400, 0.5, 'sawtooth', 0.14, -1900); tone(160, 0.5, 'square', 0.12, -90); noise(0.5, 0.3, 4000); },
+    crash() { noise(0.9, 0.38, 500, 0, 1); tone(70, 0.6, 'sawtooth', 0.2, -35); },
     blip() { tone(660, 0.04, 'square', 0.04); },
   };
 })();

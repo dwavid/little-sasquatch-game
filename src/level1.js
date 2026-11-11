@@ -22,9 +22,11 @@ const L1 = {
 
   // x0, x1, top y, kind
   ground: [
-    [-1600, 300, 232, 'dirt'],
-    [300, 338, 216, 'boulder'],
-    [338, 1560, 232, 'dirt'],
+    [-1600, -6, 232, 'dirt'],
+    [-6, 66, 216, 'log', 66],        // the small tree that fell behind Little Sasquatch in the storm
+    [66, 144, 232, 'dirt'],
+    [144, 250, 216, 'log', 100],     // the big tree that fell between him and his family: hop over it!
+    [250, 1560, 232, 'dirt'],
     [1560, 1700, 216, 'dirt'], [1700, 1860, 198, 'dirt'], [1860, 2000, 216, 'dirt'],
     [2000, 2530, 232, 'dirt'],
     [2530, 2562, 214, 'crate'],
@@ -70,8 +72,8 @@ const L1 = {
   checkpoints: [1450, 3420, 4800],
 
   signs: [
-    { x: 150,  text: 'LITTLE SASQUATCH IS HUNGRY! MOVE WITH THE ARROW KEYS OR A AND D.' },
-    { x: 255,  text: 'PRESS SPACE TO JUMP. TRY HOPPING OVER THAT ROCK!' },
+    { x: 92,   text: 'LITTLE SASQUATCH IS HUNGRY! MOVE WITH THE ARROW KEYS OR A AND D.' },
+    { x: 122,  text: 'PRESS SPACE TO JUMP. HOP RIGHT OVER THAT FALLEN TREE!' },
     { x: 485,  text: 'A COOLER! STAND NEXT TO IT AND PRESS E TO GRAB FOOD.' },
     { x: 745,  text: 'WATCH OUT, PARK RANGERS! JUMP ON THEIR HATS, OR HIDE IN A BUSH BY HOLDING DOWN.' },
     { x: 1500, text: 'FULL TUMMY FIRST, THEN FIND SHELTER BEFORE DARK!' },
@@ -82,7 +84,7 @@ const L1 = {
   tables: [920, 2880, 3110],
   campfires: [{ x: 1120 }, { x: 3015 }],
   rv: { x: 2575 }, truck: { x: 3160 },
-  puddles: [185, 430, 610, 760],
+  puddles: [330, 430, 610, 760],
   sticks: [360, 520, 700, 1400],
 };
 
