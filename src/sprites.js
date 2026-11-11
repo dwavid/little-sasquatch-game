@@ -183,11 +183,9 @@ function sasq(p = {}, k = 1, who = 'kid', look = 0) {
     P.px(S(10.4 + fx), S(15 + hy), '#fff'); P.px(S(15.6 + fx), S(15 + hy), '#fff');
   } else {
     const my = Math.round(S(14.2 + hy)), u = Math.max(1, Math.round(k));
-    P.rect(S(9.5 + fx), my, S(8) + u, u, INK);                 // thin mouth line
-    for (const [tx, side] of [[9.5, 1], [16, 0]]) {      // two small tusks pointing up, no outline
-      const x0 = Math.round(S(tx + fx));
-      P.rect(x0, my, 2 * u, 2 * u, '#ffffff');                  // body of the tooth: crosses the mouth line, ends below it
-      P.rect(x0 + side * u, my - u, u, u, '#ffffff');           // the pointy tip sticks up ABOVE the mouth line
+    P.rect(S(8 + fx), my, S(10), u, INK);                       // mouth line: sticks out past the teeth on both sides
+    for (const tx of [10, 15]) {                                // two thin one-pixel teeth, tucked inside the line
+      P.rect(Math.round(S(tx + fx)), my - u, u, 3 * u, '#ffffff');   // from just above the line to just below it
     }
   }
   // accessories
